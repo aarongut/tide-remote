@@ -1,0 +1,12 @@
+services:
+  tide-remote:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${BIND_IP:-127.0.0.1}:${REMOTE_PORT:-3000}:3000"
+    environment:
+      TIDE_HOST: ${TIDE_HOST:-10.0.0.130}
+      TIDE_PORT: ${TIDE_PORT:-5555}
+      REMOTE_USER: ${REMOTE_USER:-}
+      REMOTE_PASSWORD: ${REMOTE_PASSWORD:-}
+      APP_ORIGIN: ${APP_ORIGIN:-}

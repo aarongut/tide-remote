@@ -1,0 +1,23 @@
+# Add your existing local-only include at server scope before enabling.
+# Install in nginx's http context, then let Certbot add HTTPS/TLS using
+# your existing certificate issuance workflow. This is the pre-TLS vhost.
+server {
+    listen 10.0.0.5:80;
+    server_name tide-control.local.frat.tech;
+
+    # Add: include <your existing local-only snippet>;
+    # Retain that include in the HTTPS server block Certbot configures.
+
+    location / {
+        proxy_pass http://10.0.0.54:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 75s;
+        proxy_send_timeout 75s;
+        proxy_buffering off;
+    }
+}

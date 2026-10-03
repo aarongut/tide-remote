@@ -1,0 +1,767 @@
+<div
+  id="tide-designs"
+  class="viz-dotted-background"
+  aria-label="Thumb zone design"
+>
+  <section data-variant="Thumb zone" aria-label="Thumb zone remote">
+    <div class="td-stage">
+      <div class="td-phone td-thumb" data-design="Thumb zone"></div>
+    </div>
+  </section>
+</div>
+<style>
+  #tide-designs .td-stage {
+    min-height: 952px;
+    padding: 16px 0 24px;
+    display: flex;
+    justify-content: center;
+  }
+  #tide-designs .td-phone {
+    --td-bg: light-dark(#f3f4f7, #101114);
+    --td-panel: light-dark(#ffffff, #202126);
+    --td-text: light-dark(#17181c, #f5f5f7);
+    --td-secondary: light-dark(#666a73, #a8acb5);
+    --td-line: light-dark(#e2e4e9, #34363e);
+    --td-accent: light-dark(#245fd2, #85aaff);
+    --td-tint: light-dark(#e8efff, #26344d);
+    --td-track: light-dark(#e7e9ef, #343740);
+    color: var(--td-text);
+    background: var(--td-bg);
+    font:
+      15px/1.4 -apple-system,
+      BlinkMacSystemFont,
+      "Helvetica Neue",
+      sans-serif;
+    width: 420px;
+    max-width: 100%;
+    height: 850px;
+    border-radius: 42px;
+    box-shadow: 0 18px 60px #00000018;
+    position: relative;
+    box-sizing: border-box;
+    padding: 0 24px 34px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    overflow: hidden;
+  }
+  #tide-designs .td-phone * {
+    box-sizing: border-box;
+  }
+  #tide-designs .td-status {
+    height: 60px;
+    flex-shrink: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 8px;
+    font-size: 14px;
+    font-weight: 600;
+    position: relative;
+  }
+  #tide-designs .td-island {
+    position: absolute;
+    width: 114px;
+    height: 30px;
+    background: #08090a;
+    border-radius: 22px;
+    left: 50%;
+    transform: translateX(-50%);
+    top: 15px;
+  }
+  #tide-designs .td-status-right {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+  }
+  #tide-designs .td-status-right svg {
+    width: 15px;
+    height: 15px;
+  }
+  #tide-designs .td-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  #tide-designs h2 {
+    font-size: 30px;
+    line-height: 1.1;
+    letter-spacing: -1px;
+    font-weight: 600;
+    margin: 0;
+  }
+  #tide-designs .td-kicker {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--td-secondary);
+    margin-bottom: 5px;
+  }
+  #tide-designs .td-connection {
+    font-size: 12px;
+    color: var(--td-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 7px;
+  }
+  #tide-designs .td-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: light-dark(#21814b, #67d693);
+  }
+  #tide-designs .td-logo {
+    width: 45px;
+    height: 45px;
+    background: var(--td-panel);
+    border-radius: 15px;
+    display: grid;
+    place-items: center;
+    color: var(--td-accent);
+  }
+  #tide-designs .td-logo svg {
+    width: 23px;
+    height: 23px;
+  }
+  #tide-designs button,
+  #tide-designs select {
+    font: inherit;
+    color: inherit;
+    border: 0;
+    cursor: inherit;
+  }
+  #tide-designs button {
+    min-height: 44px;
+  }
+  #tide-designs .td-modes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  #tide-designs .td-mode {
+    background: var(--td-panel);
+    border-radius: 20px;
+    text-align: left;
+    padding: 17px 15px;
+    position: relative;
+    min-height: 94px;
+    box-shadow: 0 2px 5px #00000004;
+  }
+  #tide-designs .td-mode[aria-pressed="true"] {
+    background: var(--td-tint);
+    color: var(--td-accent);
+  }
+  #tide-designs .td-mode .td-mode-icon {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  #tide-designs .td-mode-icon svg {
+    width: 19px;
+    height: 19px;
+  }
+  #tide-designs .td-check {
+    visibility: hidden;
+  }
+  #tide-designs .td-mode[aria-pressed="true"] .td-check {
+    visibility: visible;
+  }
+  #tide-designs .td-mode strong {
+    display: block;
+    font-weight: 600;
+    font-size: 16px;
+  }
+  #tide-designs .td-mode small {
+    display: block;
+    font-size: 12px;
+    color: var(--td-secondary);
+    margin-top: 2px;
+  }
+  #tide-designs .td-section-label {
+    font-size: 12px;
+    color: var(--td-secondary);
+    margin: 0 0 9px 3px;
+    font-weight: 500;
+  }
+  #tide-designs .td-volume {
+    padding: 22px 20px 16px;
+    background: var(--td-panel);
+    border-radius: 26px;
+  }
+  #tide-designs .td-volume-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--td-secondary);
+    font-size: 13px;
+  }
+  #tide-designs .td-value {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 8px;
+    margin: 12px 0 17px;
+    font-variant-numeric: tabular-nums;
+  }
+  #tide-designs .td-value b {
+    font-size: 64px;
+    font-weight: 400;
+    letter-spacing: -4px;
+    line-height: 1.1;
+  }
+  #tide-designs .td-value span {
+    font-size: 16px;
+    color: var(--td-secondary);
+  }
+  #tide-designs .td-slider {
+    width: 100%;
+    height: 38px;
+    accent-color: var(--td-accent);
+    margin: 0;
+    display: block;
+  }
+  #tide-designs .td-volume-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 8px;
+  }
+  #tide-designs .td-nudge {
+    background: var(--td-bg);
+    border-radius: 50%;
+    width: 48px;
+    font-size: 25px;
+    font-weight: 400;
+  }
+  #tide-designs .td-mute {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    justify-content: center;
+    background: transparent;
+    border-radius: 14px;
+    padding: 0 18px;
+    color: var(--td-secondary);
+  }
+  #tide-designs .td-mute[aria-pressed="true"] {
+    background: var(--td-tint);
+    color: var(--td-accent);
+  }
+  #tide-designs .td-mute svg {
+    width: 17px;
+    height: 17px;
+  }
+  #tide-designs .td-controls {
+    background: var(--td-panel);
+    border-radius: 22px;
+    padding: 0 16px;
+  }
+  #tide-designs .td-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 56px;
+    gap: 10px;
+  }
+  #tide-designs .td-row + .td-row {
+    border-top: 1px solid var(--td-line);
+  }
+  #tide-designs .td-row-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    white-space: nowrap;
+  }
+  #tide-designs .td-row-label svg {
+    width: 17px;
+    height: 17px;
+    color: var(--td-secondary);
+  }
+  #tide-designs select {
+    max-width: 65%;
+    min-height: 44px;
+    background: transparent;
+    text-align: right;
+    font-size: 14px;
+    color: var(--td-accent);
+    padding: 0 3px;
+  }
+  #tide-designs .td-segments {
+    display: flex;
+    padding: 3px;
+    border-radius: 12px;
+    background: var(--td-bg);
+    gap: 2px;
+  }
+  #tide-designs .td-segments button {
+    padding: 0 10px;
+    font-size: 13px;
+    background: transparent;
+    min-height: 38px;
+    border-radius: 9px;
+    color: var(--td-secondary);
+  }
+  #tide-designs .td-segments button[aria-pressed="true"] {
+    background: var(--td-panel);
+    color: var(--td-text);
+    box-shadow: 0 1px 5px #00000012;
+  }
+  #tide-designs .td-switch {
+    position: relative;
+    display: inline-flex;
+    width: 49px;
+    height: 30px;
+  }
+  #tide-designs .td-switch input {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+  }
+  #tide-designs .td-switch span {
+    background: var(--td-track);
+    width: 100%;
+    height: 100%;
+    border-radius: 18px;
+    pointer-events: none;
+  }
+  #tide-designs .td-switch span:after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px #00000022;
+    transition: transform 0.15s;
+  }
+  #tide-designs .td-switch input:checked + span {
+    background: light-dark(#279657, #35bd71);
+  }
+  #tide-designs .td-switch input:checked + span:after {
+    transform: translateX(19px);
+  }
+  #tide-designs .td-switch input:focus-visible + span {
+    outline: 2px solid var(--td-accent);
+    outline-offset: 3px;
+  }
+  #tide-designs .td-meters {
+    margin-top: auto;
+  }
+  #tide-designs .td-meter-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--td-secondary);
+    font-size: 11px;
+    letter-spacing: 0.7px;
+    margin-bottom: 9px;
+    text-transform: uppercase;
+  }
+  #tide-designs .td-meter-bars {
+    display: grid;
+    grid-template-columns: repeat(16, 1fr);
+    gap: 5px;
+    height: 44px;
+    align-items: end;
+  }
+  #tide-designs .td-meter-track {
+    height: 44px;
+    background: var(--td-track);
+    border-radius: 3px;
+    display: flex;
+    align-items: end;
+    overflow: hidden;
+  }
+  #tide-designs .td-meter-fill {
+    width: 100%;
+    background: var(--td-accent);
+    opacity: 0.68;
+    border-radius: 3px;
+    height: var(--level);
+  }
+  #tide-designs .td-meter-ids {
+    display: grid;
+    grid-template-columns: repeat(16, 1fr);
+    gap: 5px;
+    font-size: 10px;
+    text-align: center;
+    color: var(--td-secondary);
+    margin-top: 5px;
+  }
+  #tide-designs .td-home {
+    position: absolute;
+    bottom: 10px;
+    height: 5px;
+    width: 130px;
+    background: var(--td-text);
+    opacity: 0.85;
+    border-radius: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  #tide-designs .td-thumb {
+    gap: 20px;
+  }
+  #tide-designs .td-thumb .td-volume {
+    order: 5;
+    margin-top: auto;
+    padding: 23px 20px 17px;
+  }
+  #tide-designs .td-thumb .td-controls {
+    order: 3;
+  }
+  #tide-designs .td-thumb .td-modes {
+    order: 4;
+  }
+  #tide-designs .td-thumb .td-meters {
+    order: 2;
+    margin-top: 0;
+    padding: 18px;
+    background: var(--td-panel);
+    border-radius: 22px;
+  }
+  #tide-designs .td-thumb .td-meter-bars,
+  #tide-designs .td-thumb .td-meter-track {
+    height: 61px;
+  }
+  #tide-designs .td-thumb .td-volume .td-value {
+    margin: 8px 0 10px;
+  }
+  #tide-designs .td-thumb .td-volume-bottom {
+    margin-top: 4px;
+  }
+  #tide-designs .td-thumb .td-mode {
+    min-height: 88px;
+    padding: 14px;
+  }
+  #tide-designs .td-studio {
+    --td-accent: light-dark(#94652a, #d5b477);
+    --td-tint: light-dark(#f4ecdf, #383023);
+    --td-bg: light-dark(#eeede9, #151513);
+    --td-panel: light-dark(#fbfaf7, #23231f);
+    gap: 20px;
+  }
+  #tide-designs .td-studio .td-heading {
+    border-bottom: 1px solid var(--td-line);
+    padding-bottom: 17px;
+  }
+  #tide-designs .td-studio h2 {
+    font-size: 24px;
+    letter-spacing: 3px;
+    font-weight: 500;
+  }
+  #tide-designs .td-studio .td-logo {
+    background: transparent;
+  }
+  #tide-designs .td-studio .td-meters {
+    order: 2;
+    margin-top: 0;
+    background: var(--td-panel);
+    padding: 16px;
+    border-radius: 14px;
+  }
+  #tide-designs .td-studio .td-meter-bars,
+  #tide-designs .td-studio .td-meter-track {
+    height: 66px;
+  }
+  #tide-designs .td-studio .td-modes {
+    order: 3;
+  }
+  #tide-designs .td-studio .td-mode {
+    border-radius: 14px;
+    min-height: 80px;
+    padding: 12px 15px;
+  }
+  #tide-designs .td-studio .td-mode-icon {
+    display: none;
+  }
+  #tide-designs .td-studio .td-controls {
+    order: 4;
+    border-radius: 14px;
+  }
+  #tide-designs .td-studio .td-volume {
+    order: 5;
+    margin-top: auto;
+    background: transparent;
+    padding: 5px 4px 0;
+  }
+  #tide-designs .td-studio .td-value b {
+    font-size: 80px;
+    font-weight: 300;
+    letter-spacing: -4px;
+  }
+  #tide-designs .td-studio .td-value {
+    margin: 6px 0 12px;
+  }
+  #tide-designs .td-studio .td-nudge {
+    background: var(--td-panel);
+  }
+  @media (max-width: 380px) {
+    #tide-designs .td-phone {
+      padding-left: 16px;
+      padding-right: 16px;
+      border-radius: 30px;
+      gap: 18px;
+    }
+    #tide-designs .td-segments button {
+      padding: 0 7px;
+    }
+    #tide-designs .td-row-label {
+      gap: 6px;
+    }
+    #tide-designs .td-meter-bars,
+    #tide-designs .td-meter-ids {
+      gap: 3px;
+    }
+    #tide-designs .td-mode {
+      padding: 14px 12px;
+    }
+    #tide-designs .td-mode strong {
+      font-size: 15px;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #tide-designs * {
+      transition: none !important;
+    }
+  }
+  #tide-designs .td-phone {
+    height: 912px;
+    gap: 12px;
+  }
+  #tide-designs .td-heading {
+    min-height: 64px;
+    flex-shrink: 0;
+  }
+  #tide-designs .td-mode {
+    min-height: 80px;
+    padding: 12px 15px;
+  }
+  #tide-designs .td-mode-icon {
+    margin-bottom: 5px;
+  }
+  #tide-designs .td-volume {
+    height: 190px;
+    flex-shrink: 0;
+    padding: 12px 20px;
+  }
+  #tide-designs .td-value {
+    margin: 4px 0 8px;
+  }
+  #tide-designs .td-value b {
+    font-size: 54px;
+  }
+  #tide-designs .td-slider {
+    height: 32px;
+  }
+  #tide-designs .td-volume-bottom {
+    margin-top: 4px;
+  }
+  #tide-designs .td-row {
+    min-height: 52px;
+  }
+  #tide-designs .td-controls {
+    flex-shrink: 0;
+  }
+  #tide-designs .td-meters {
+    flex-shrink: 0;
+  }
+  #tide-designs .td-thumb .td-volume {
+    padding: 12px 20px;
+  }
+  #tide-designs .td-thumb .td-meters {
+    padding: 10px 16px;
+  }
+  #tide-designs .td-thumb .td-meter-bars,
+  #tide-designs .td-thumb .td-meter-track {
+    height: 28px;
+  }
+  #tide-designs .td-studio .td-heading {
+    padding-bottom: 10px;
+  }
+  #tide-designs .td-studio {
+    gap: 10px;
+  }
+  #tide-designs .td-studio .td-meters {
+    padding: 10px 16px;
+  }
+  #tide-designs .td-studio .td-meter-bars,
+  #tide-designs .td-studio .td-meter-track {
+    height: 38px;
+  }
+  #tide-designs .td-studio .td-value b {
+    font-size: 64px;
+  }
+  #tide-designs .td-studio .td-volume {
+    height: 190px;
+  }
+</style>
+<script>
+  (() => {
+    const root = document.getElementById("tide-designs");
+    const config = { meters: true };
+    const levels = [
+      60, 54, 41, 79, 32, 36, 23, 27, 46, 39, 71, 24, 17, 0, 0, 0,
+    ];
+    const saved = window.openai?.widgetState?.privateContent || {};
+    const restorers = [];
+    root.querySelectorAll(".td-phone").forEach((phone) => {
+      const index = { Everyday: 0, "Thumb zone": 1, Studio: 2 }[
+        phone.dataset.design
+      ];
+      const name = phone.dataset.design;
+      const state = {
+        volume: -36,
+        muted: false,
+        source: "HDMI 1",
+        upmix: "Dolby",
+        dirac: true,
+        preset: "0",
+        ...saved[name],
+      };
+      const label =
+        index === 1 ? "Listening room" : index === 2 ? "TIDE / 16" : "Tide";
+      phone.innerHTML = `
+ <div class="td-status"><span>9:41</span><span class="td-island" aria-hidden="true"></span><span class="td-status-right"><i data-lucide="signal" aria-hidden="true"></i><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div>
+ <header class="td-heading"><div><div class="td-kicker">${index === 2 ? "Listening console" : "Tide16"}</div><h2>${label}</h2><div class="td-connection"><span class="td-dot"></span>Connected</div></div><span class="td-logo"><i data-lucide="audio-lines" aria-hidden="true"></i></span></header>
+ <div class="td-modes"><button class="td-mode cursor-interaction" data-mode="music" aria-pressed="false"><span class="td-mode-icon"><i data-lucide="music-2" aria-hidden="true"></i><i class="td-check" data-lucide="check" aria-hidden="true"></i></span><strong>Music</strong><small>Optical · Native</small></button><button class="td-mode cursor-interaction" data-mode="cinema" aria-pressed="true"><span class="td-mode-icon"><i data-lucide="clapperboard" aria-hidden="true"></i><i class="td-check" data-lucide="check" aria-hidden="true"></i></span><strong>Cinema</strong><small>HDMI · Dolby</small></button></div>
+ <section class="td-volume" aria-label="Volume controls"><div class="td-volume-top"><span>Master volume</span><i data-lucide="volume-2" aria-hidden="true"></i></div><div class="td-value" aria-live="polite"><b data-value>−36.0</b><span>dB</span></div><input class="td-slider" aria-label="Master volume in decibels" type="range" min="-80" max="0" step="0.5" value="-36"><div class="td-volume-bottom"><button class="td-nudge cursor-interaction" data-step="-0.5" aria-label="Decrease volume by half a decibel">−</button><button class="td-mute cursor-interaction" aria-pressed="false"><i data-lucide="volume-x" aria-hidden="true"></i><span>Mute</span></button><button class="td-nudge cursor-interaction" data-step="0.5" aria-label="Increase volume by half a decibel">+</button></div></section>
+ <section class="td-controls" aria-label="Audio settings"><div class="td-row"><span class="td-row-label"><i data-lucide="cable" aria-hidden="true"></i>Input</span><select data-source aria-label="Input"><option>Optical 1</option><option>Optical 2</option><option>HDMI 1</option><option>HDMI 2</option><option>HDMI 3</option><option>eARC</option><option>USB</option><option>Bluetooth</option><option>Coaxial 1</option><option>Coaxial 2</option><option>Analog RCA</option><option>Analog XLR</option></select></div><div class="td-row"><span class="td-row-label">Upmix</span><div class="td-segments" aria-label="Upmix mode">${["Native", "Dolby", "DTS"].map((v) => `<button class="cursor-interaction" data-upmix="${v}" aria-pressed="${v === "Dolby"}">${v}</button>`).join("")}</div></div><div class="td-row"><span class="td-row-label"><i data-lucide="sparkles" aria-hidden="true"></i>Dirac Live</span><label class="td-switch cursor-interaction"><input data-dirac type="checkbox" checked aria-label="Enable Dirac Live"><span></span></label></div><div class="td-row"><span class="td-row-label">Preset</span><select data-preset aria-label="Dirac preset"><option value="0">+8 dB / −1 dB</option><option value="1">Preset 2</option><option value="2">Preset 3</option><option value="3">Preset 4</option><option value="4">Preset 5</option><option value="5">Preset 6</option><option value="6">Preset 7</option><option value="7">Preset 8</option><option value="8">Preset 9</option></select></div></section>
+ <section class="td-meters" aria-label="Simulated 16-channel output meter"><div class="td-meter-head"><span>Output levels</span><span>16 channels</span></div><div class="td-meter-bars">${levels.map((v) => `<div class="td-meter-track"><div class="td-meter-fill" style="--level:${v}%"></div></div>`).join("")}</div><div class="td-meter-ids">${levels.map((v, i) => `<span>${i + 1}</span>`).join("")}</div></section><div class="td-home" aria-hidden="true"></div>`;
+      const slider = phone.querySelector(".td-slider");
+      function render() {
+        phone.querySelector("[data-value]").textContent = state.muted
+          ? "Muted"
+          : state.volume.toFixed(1).replace("-", "−");
+        phone.querySelector(".td-value span").hidden = state.muted;
+        if (state.muted)
+          phone.querySelector("[data-value]").style.fontSize = "44px";
+        else phone.querySelector("[data-value]").style.fontSize = "";
+        slider.value = state.volume;
+        phone
+          .querySelector(".td-mute")
+          .setAttribute("aria-pressed", state.muted);
+        phone.querySelector(".td-mute span").textContent = state.muted
+          ? "Unmute"
+          : "Mute";
+        phone.querySelector("[data-source]").value = state.source;
+        phone.querySelector("[data-preset]").value = state.preset;
+        phone.querySelector("[data-dirac]").checked = state.dirac;
+        phone
+          .querySelectorAll("[data-upmix]")
+          .forEach((b) =>
+            b.setAttribute("aria-pressed", b.dataset.upmix === state.upmix),
+          );
+        phone
+          .querySelectorAll("[data-mode]")
+          .forEach((b) =>
+            b.setAttribute(
+              "aria-pressed",
+              b.dataset.mode === "music"
+                ? state.source === "Optical 1" && state.upmix === "Native"
+                : state.source === "HDMI 1" && state.upmix === "Dolby",
+            ),
+          );
+        phone
+          .querySelectorAll(".td-meter-fill")
+          .forEach(
+            (bar, i) =>
+              (bar.style.height = state.muted ? "0%" : levels[i] + "%"),
+          );
+      }
+      function persist() {
+        saved[name] = { ...state };
+        window.openai
+          ?.setWidgetState?.({
+            modelContent: {
+              design: name,
+              volume: state.volume,
+              input: state.source,
+              upmix: state.upmix,
+              meters: config.meters,
+            },
+            privateContent: saved,
+          })
+          ?.catch(() => {});
+      }
+      slider.addEventListener("input", () => {
+        state.volume = Number(slider.value);
+        render();
+        persist();
+      });
+      phone.querySelectorAll("[data-step]").forEach((b) =>
+        b.addEventListener("click", () => {
+          state.volume = Math.max(
+            -80,
+            Math.min(0, state.volume + Number(b.dataset.step)),
+          );
+          render();
+          persist();
+        }),
+      );
+      phone.querySelector(".td-mute").addEventListener("click", () => {
+        state.muted = !state.muted;
+        render();
+        persist();
+      });
+      phone.querySelectorAll("[data-mode]").forEach((b) =>
+        b.addEventListener("click", () => {
+          state.source = b.dataset.mode === "music" ? "Optical 1" : "HDMI 1";
+          state.upmix = b.dataset.mode === "music" ? "Native" : "Dolby";
+          render();
+          persist();
+        }),
+      );
+      phone.querySelectorAll("[data-upmix]").forEach((b) =>
+        b.addEventListener("click", () => {
+          state.upmix = b.dataset.upmix;
+          render();
+          persist();
+        }),
+      );
+      phone.querySelector("[data-source]").addEventListener("change", (e) => {
+        state.source = e.target.value;
+        render();
+        persist();
+      });
+      phone.querySelector("[data-preset]").addEventListener("change", (e) => {
+        state.preset = e.target.value;
+        render();
+        persist();
+      });
+      phone.querySelector("[data-dirac]").addEventListener("change", (e) => {
+        state.dirac = e.target.checked;
+        render();
+        persist();
+      });
+      render();
+      restorers.push((next) => {
+        if (next[name]) {
+          Object.assign(state, next[name]);
+          render();
+        }
+      });
+    });
+    function designRender() {
+      root
+        .querySelectorAll(".td-meters")
+        .forEach((m) => (m.hidden = !config.meters));
+    }
+    designRender();
+    if (globalThis.Tweak) {
+      const tweak = new Tweak({ container: root, onChange: designRender });
+      tweak.addToggle(config, "meters", { label: "Show channel meters" });
+    }
+    window.addEventListener("openai:set_globals", (event) => {
+      const next = event.detail?.globals?.widgetState?.privateContent;
+      if (next) restorers.forEach((restore) => restore(next));
+    });
+  })();
+</script>
