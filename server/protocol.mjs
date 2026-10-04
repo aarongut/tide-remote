@@ -66,18 +66,20 @@ export function assignedOutputs(speakers = {}) {
 // must never cause a stereo source to be labelled Atmos or 7.1.
 export function streamLabel(stream = {}) {
   const source = [stream.decoder_stream_src_format, stream.decoder_stream_type]
-    .filter(Boolean)
+    .filter((value) => value && String(value).trim() !== "0")
     .join(" ");
   if (/atmos|(?:^|\W)mat(?:\W|$)/i.test(source) && /atmos/i.test(source))
     return "Dolby Atmos";
   if (/dts[\s:_-]*x(?:\W|$)/i.test(source)) return "DTS:X";
   const config = String(stream.channel_config || "").trim();
-  if (/^(2\.0|2\/0(?:\.0)?|stereo|2ch|2 channels)$/i.test(config))
+  if (config === "0") return "No signal";
+  if (/^(2|2\.0|2\/0(?:\.0)?|stereo|2ch|2 channels)$/i.test(config))
     return "Stereo";
   const layout = config.match(/(?:^|\s)([1-9]\.\d(?:\.\d)?)(?:$|\s)/);
   if (layout) return layout[1] === "2.0" ? "Stereo" : layout[1];
   if (config) return config;
   if (source.trim()) return source.trim();
-  if (stream.sample_rate || stream.dec_sample_rate) return "Unknown format";
+  if (Number(stream.sample_rate) > 0 || Number(stream.dec_sample_rate) > 0)
+    return "Unknown format";
   return "No signal";
 }

@@ -77,3 +77,22 @@ test("incoming format is independent of upmix and output layout", () => {
   );
   assert.equal(streamLabel({}), "No signal");
 });
+test("numeric firmware channel counts have readable labels", () => {
+  for (const channel_config of ["2", 2])
+    assert.equal(streamLabel({ channel_config }), "Stereo");
+  for (const zero of ["0", 0])
+    assert.equal(
+      streamLabel({
+        channel_config: zero,
+        decoder_stream_src_format: zero,
+        decoder_stream_type: zero,
+        sample_rate: zero,
+        dec_sample_rate: zero,
+      }),
+      "No signal",
+    );
+  assert.equal(
+    streamLabel({ channel_config: "0", sample_rate: 48000 }),
+    "No signal",
+  );
+});
