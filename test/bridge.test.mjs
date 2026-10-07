@@ -131,3 +131,39 @@ test("cross-origin browser connection is rejected", async (t) => {
   const [error] = await once(socket, "error");
   assert.match(error.message, /403/);
 });
+
+test("output assignments recover after an empty boot response without notifications", async (t) => {
+  const device = new WebSocketServer({ port: 0 });
+  await once(device, "listening");
+  t.after(() => device.close());
+  let outputs = {};
+  device.on("connection", (socket) => {
+    socket.on("message", (raw) => {
+      const { endpoint } = JSON.parse(raw);
+      const data = endpoint === "get_output_speakers" ? outputs : {};
+      socket.send(JSON.stringify({ req: endpoint, status: "OK", data }));
+    });
+  });
+  const tide = new Tide(`ws://127.0.0.1:${device.address().port}`);
+  t.after(() => tide.stop());
+  tide.visibleClients = 1;
+  tide.start();
+  await until(() => tide.state.ready);
+  assert.deepEqual(tide.state.outputs, []);
+  outputs = { 1: "LeftFront", 13: "Sub2" };
+  await sleep(2600);
+  await until(() => tide.state.outputs.length === 2);
+  assert.deepEqual(tide.state.outputs, [
+    { index: 1, name: "LeftFront" },
+    { index: 13, name: "Sub2" },
+  ]);
+  tide.state.busy = true;
+  outputs = { 3: "Center" };
+  tide.notification({ notification: "coordinator_status", value: "ready" });
+  await until(() => tide.state.outputs[0]?.index === 3);
+  assert.equal(tide.state.busy, false);
+  tide.state.busy = true;
+  for (const socket of device.clients) socket.terminate();
+  await until(() => !tide.state.connected);
+  assert.equal(tide.state.busy, false);
+});

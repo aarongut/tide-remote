@@ -164,7 +164,7 @@ h1 {
     var(--red) 100%
   );
   clip-path: inset(calc(100% - var(--level, 0%)) 0 0 0);
-  transition: clip-path 110ms linear;
+  transition: clip-path 40ms linear;
 }
 .meter-label {
   font-size: 11px;

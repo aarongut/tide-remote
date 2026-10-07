@@ -53,7 +53,7 @@ export class Tide extends EventEmitter {
         !this.active &&
         !this.queue.length
       )
-        this.request({ endpoint: "get_stream_properties" }).catch(() => {});
+        this.refresh(["get_stream_properties", "get_output_speakers"]);
     }, 2500);
   }
   connect() {
@@ -101,6 +101,7 @@ export class Tide extends EventEmitter {
       if (socket !== this.socket) return;
       this.state.connected = false;
       this.state.ready = false;
+      this.state.busy = false;
       this.state.levels = [];
       this.publish();
       this.failAll(new Error("Processor disconnected"));
@@ -258,6 +259,7 @@ export class Tide extends EventEmitter {
         break;
       case "coordinator_status":
         this.state.busy = value !== "ready";
+        if (!this.state.busy) this.refresh(["get_output_speakers"]);
         break;
       default:
         return;
