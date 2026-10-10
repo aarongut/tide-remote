@@ -30,6 +30,19 @@ mode change; do not treat temporary zero-volume notifications as user intent.
 
 ## Input stream format
 
+On 2026-10-09, active Shield/Tidal Atmos playback returned
+`decoder_stream_type: "DOLBY_DDP"` and
+`decoder_stream_proc_type: "Dolby Atmos"`, with an empty source format,
+`channel_config: "0"`, 48000 Hz, `is_lpcm_upmixed: false`,
+`is_bitstream: false`, and `packet_type: "LPCM"`.
+The label uses that DDP + Atmos pair before the zero-channel fallback.
+The same response was observed after the user paused and rewound playback.
+A zero channel count alone does not establish no signal: codec metadata
+still supplies a label, and a positive sample rate yields “Unknown format”
+when no codec or layout is available.
+Neither DDP/TrueHD alone nor Atmos processing on a PCM source establishes
+an incoming Atmos label.
+
 `get_stream_properties` was verified as a read-only request. It returns
 `decoder_type`, `decoder_stream_type`, `decoder_stream_proc_type`,
 `decoder_stream_src_format`, `channel_config`, `sample_rate`, and other fields.

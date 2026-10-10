@@ -62,17 +62,23 @@ export function assignedOutputs(speakers = {}) {
     .sort((a, b) => a.index - b.index);
 }
 
-// Source metadata only: the selected upmixer and installed speaker layout
+// The selected upmixer and installed speaker layout
 // must never cause a stereo source to be labelled Atmos or 7.1.
 export function streamLabel(stream = {}) {
   const source = [stream.decoder_stream_src_format, stream.decoder_stream_type]
     .filter((value) => value && String(value).trim() !== "0")
     .join(" ");
-  if (/atmos|(?:^|\W)mat(?:\W|$)/i.test(source) && /atmos/i.test(source))
-    return "Dolby Atmos";
+  // Shield/Tidal reports DDP + Atmos processing even with channel_config=0
+  // and is_bitstream=false. Processing alone can describe stereo upmixing.
+  const ddpAtmos =
+    /^DOLBY_DDP$/i.test(String(stream.decoder_stream_type || "").trim()) &&
+    /^Dolby Atmos$/i.test(String(stream.decoder_stream_proc_type || "").trim());
+  if (/atmos/i.test(source) || ddpAtmos) return "Dolby Atmos";
   if (/dts[\s:_-]*x(?:\W|$)/i.test(source)) return "DTS:X";
-  const config = String(stream.channel_config || "").trim();
-  if (config === "0") return "No signal";
+  // A zero channel count can mean unavailable layout metadata, including
+  // during active playback after seeking. Keep codec/rate evidence visible.
+  const rawConfig = String(stream.channel_config ?? "").trim();
+  const config = rawConfig === "0" ? "" : rawConfig;
   if (/^(2|2\.0|2\/0(?:\.0)?|stereo|2ch|2 channels)$/i.test(config))
     return "Stereo";
   const layout = config.match(/(?:^|\s)([1-9]\.\d(?:\.\d)?)(?:$|\s)/);

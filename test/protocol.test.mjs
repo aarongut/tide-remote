@@ -77,6 +77,45 @@ test("incoming format is independent of upmix and output layout", () => {
   );
   assert.equal(streamLabel({}), "No signal");
 });
+test("Shield Tidal DDP Atmos uses the reported processing format", () => {
+  const stream = {
+    decoder_type: "Unknown decoder",
+    decoder_stream_type: "DOLBY_DDP",
+    decoder_stream_proc_type: "Dolby Atmos",
+    decoder_stream_src_format: "",
+    channel_config: "0",
+    dec_sample_rate: 48000,
+    sample_rate: "48000",
+    is_lpcm_upmixed: false,
+    is_bitstream: false,
+    packet_type: "LPCM",
+  };
+  assert.equal(streamLabel(stream), "Dolby Atmos");
+  assert.equal(
+    streamLabel({
+      ...stream,
+      decoder_stream_proc_type: "Dolby Digital Plus",
+      channel_config: "5.1",
+    }),
+    "5.1",
+  );
+  assert.equal(
+    streamLabel({
+      ...stream,
+      decoder_stream_type: "LPCM",
+      channel_config: "2.0",
+      is_lpcm_upmixed: true,
+    }),
+    "Stereo",
+  );
+  assert.equal(
+    streamLabel({
+      decoder_stream_src_format: "Dolby TrueHD / MLP",
+      decoder_stream_type: "DOLBY_DDP",
+    }),
+    "Dolby TrueHD / MLP DOLBY_DDP",
+  );
+});
 test("numeric firmware channel counts have readable labels", () => {
   for (const channel_config of ["2", 2])
     assert.equal(streamLabel({ channel_config }), "Stereo");
@@ -93,6 +132,18 @@ test("numeric firmware channel counts have readable labels", () => {
     );
   assert.equal(
     streamLabel({ channel_config: "0", sample_rate: 48000 }),
-    "No signal",
+    "Unknown format",
+  );
+  assert.equal(
+    streamLabel({ channel_config: 0, dec_sample_rate: 48000 }),
+    "Unknown format",
+  );
+  assert.equal(
+    streamLabel({
+      channel_config: "0",
+      decoder_stream_type: "DOLBY_DDP",
+      sample_rate: 48000,
+    }),
+    "DOLBY_DDP",
   );
 });
