@@ -1,5 +1,6 @@
 services:
   tide-remote:
+    container_name: tide-remote
     build: .
     restart: unless-stopped
     ports:
