@@ -50,6 +50,14 @@ export function createServer({
       "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'",
     );
     const path = new URL(req.url, "http://localhost").pathname;
+    if (path === "/diagnostics") {
+      res.writeHead(200, {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+      });
+      res.end(JSON.stringify(tide.diagnostics()));
+      return;
+    }
     if (path === "/health") {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(
@@ -200,6 +208,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     password: process.env.REMOTE_PASSWORD,
     allowedOrigin: process.env.APP_ORIGIN,
   });
+  tide.on("diagnostic", (entry) => console.log(JSON.stringify(entry)));
   tide.start();
   server.listen(port, host, () =>
     console.log(`Tide 16 remote: http://${host}:${port}`),

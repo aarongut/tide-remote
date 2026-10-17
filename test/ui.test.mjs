@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { build } from "esbuild";
+import { build } from "vite-plus";
 import { Window } from "happy-dom";
 test("UI bundles icons, uses device output IDs, and sends control commands", async () => {
   const window = new Window({
@@ -29,12 +29,14 @@ test("UI bundles icons, uses device output IDs, and sends control commands", asy
   }
   window.WebSocket = FakeSocket;
   const result = await build({
-    entryPoints: ["web/app.js"],
-    bundle: true,
-    write: false,
-    format: "iife",
+    configFile: false,
+    logLevel: "silent",
+    build: {
+      write: false,
+      lib: { entry: "web/app.js", formats: ["iife"], name: "TideRemote" },
+    },
   });
-  window.eval(result.outputFiles[0].text);
+  window.eval(result[0].output.find((file) => file.type === "chunk").code);
   const state = {
     connected: true,
     ready: true,

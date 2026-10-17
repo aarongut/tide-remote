@@ -1,15 +1,9 @@
-import { build } from "esbuild";
+import { build } from "vite-plus";
 import { mkdir, copyFile } from "node:fs/promises";
 import { writeFile } from "node:fs/promises";
 import { deflateSync } from "node:zlib";
 await mkdir("dist", { recursive: true });
-await build({
-  entryPoints: ["web/app.js"],
-  bundle: true,
-  minify: true,
-  format: "esm",
-  outfile: "dist/app.js",
-});
+await build();
 for (const file of [
   "index.html",
   "style.css",

@@ -4,7 +4,8 @@ A single-screen iPhone PWA for the miniDSP Tide16
 
 ## Run locally
 
-Requires Node 22 or newer.
+Use Node 26 (`.node-version`); Docker uses `node:26-alpine` for both build and
+runtime. The tooling also supports Node 22.18+ (22.x) and 24.11+ (24.x).
 
 ```sh
 npm ci
@@ -59,13 +60,18 @@ outbound LAN traffic; Linux Docker networks must also have that route.
 - Slider sends on release; volume buttons change by 0.5 dB. Commands are
   serialized and are never replayed after a disconnect.
 - A mode change can briefly mute the Tide16. The UI waits while the
-  processor reports it is switching.
+  processor reports it is switching. During switching, queued control changes
+  are rejected and reads pause until ready. If ready never arrives within
+  30 seconds, the bridge reconnects and reloads state without replaying controls.
 - Supports system light/dark appearance, safe areas, offline shell, and
   locally bundled Lucide icons. No CDN or cloud service is required.
 
 ## Verification
 
 ```sh
+npm run check         # Formatting and lint checks
+npm run format        # Apply formatting
+npm run lint          # Lint only
 npm test
 npm run build
 ```

@@ -16,14 +16,19 @@ const READS = [
   "get_current_preset",
 ];
 export class Tide extends EventEmitter {
-  constructor(url, { timeout = 7000, reconnect = 1500 } = {}) {
+  constructor(
+    url,
+    { timeout = 7000, reconnect = 1500, switchingTimeout = 30000 } = {},
+  ) {
     super();
     this.url = url;
     this.timeout = timeout;
     this.reconnectDelay = reconnect;
+    this.switchingTimeout = switchingTimeout;
     this.state = {
       connected: false,
       ready: false,
+      busy: false,
       volume: null,
       mute: null,
       source: null,
@@ -42,6 +47,33 @@ export class Tide extends EventEmitter {
     this.active = null;
     this.stopped = false;
     this.visibleClients = 0;
+    this.history = [];
+    this.formats = new Map();
+  }
+  log(event, details = {}) {
+    const entry = {
+      time: new Date().toISOString(),
+      event,
+      ready: this.state.ready,
+      busy: this.state.busy,
+      active: this.active?.command.endpoint ?? null,
+      queued: this.queue.map((task) => task.command.endpoint),
+      ...structuredClone(details),
+    };
+    this.history.push(entry);
+    if (this.history.length > 200) this.history.shift();
+    this.emit("diagnostic", entry);
+  }
+  diagnostics() {
+    return structuredClone({
+      connected: this.state.connected,
+      ready: this.state.ready,
+      busy: this.state.busy,
+      active: this.active?.command.endpoint ?? null,
+      queued: this.queue.map((task) => task.command.endpoint),
+      events: this.history,
+      formats: [...this.formats.values()],
+    });
   }
   start() {
     this.connect();
@@ -69,6 +101,7 @@ export class Tide extends EventEmitter {
     const ping = setInterval(() => {
       if (socket.readyState !== WebSocket.OPEN) return;
       if (!alive) {
+        this.log("heartbeat_timeout");
         socket.terminate();
         return;
       }
@@ -77,12 +110,14 @@ export class Tide extends EventEmitter {
     }, 20000);
     socket.on("open", async () => {
       this.state.connected = true;
+      this.log("processor_connected");
       this.publish();
       try {
         for (const endpoint of READS) await this.request({ endpoint });
         if (socket !== this.socket || socket.readyState !== WebSocket.OPEN)
           return;
         this.state.ready = true;
+        this.log("processor_ready");
         this.publish();
       } catch {
         socket.terminate();
@@ -92,16 +127,21 @@ export class Tide extends EventEmitter {
       try {
         this.message(JSON.parse(raw.toString()));
       } catch (error) {
-        this.emit("diagnostic", error.message);
+        this.log("message_error", { message: error.message });
       }
     });
-    socket.on("error", () => {});
-    socket.on("close", () => {
+    socket.on("error", (error) => {
+      this.log("socket_error", { message: error.message });
+    });
+    socket.on("close", (code, reason) => {
       clearInterval(ping);
       if (socket !== this.socket) return;
+      this.log("processor_disconnected", { code, reason: reason.toString() });
       this.state.connected = false;
       this.state.ready = false;
       this.state.busy = false;
+      clearTimeout(this.switchingTimer);
+      this.switchingTimer = null;
       this.state.levels = [];
       this.publish();
       this.failAll(new Error("Processor disconnected"));
@@ -128,7 +168,12 @@ export class Tide extends EventEmitter {
     return new Promise((resolve, reject) => {
       if (this.socket?.readyState !== WebSocket.OPEN)
         return reject(new Error("Processor disconnected"));
-      if (this.queue.length > 30) return reject(new Error("Processor busy"));
+      if (this.state.busy && command.endpoint.startsWith("set_"))
+        return reject(new Error("Processor is switching"));
+      if (this.queue.length >= 30) {
+        this.log("queue_full", { endpoint: command.endpoint });
+        return reject(new Error("Processor busy"));
+      }
       this.queue.push({ command, resolve, reject });
       this.pump();
     });
@@ -136,18 +181,29 @@ export class Tide extends EventEmitter {
   pump() {
     if (
       this.active ||
+      this.state.busy ||
       !this.queue.length ||
       this.socket?.readyState !== WebSocket.OPEN
     )
       return;
     const task = (this.active = this.queue.shift());
+    task.started = Date.now();
+    if (task.command.endpoint.startsWith("set_"))
+      this.log("command_sent", { command: task.command });
     task.timer = setTimeout(() => {
+      this.log("request_timeout", { endpoint: task.command.endpoint });
       task.reject(new Error("Processor did not confirm the command"));
       this.active = null;
       this.socket.terminate();
     }, this.timeout);
     this.socket.send(JSON.stringify(task.command), (error) => {
-      if (error) this.socket.terminate();
+      if (error) {
+        this.log("send_error", {
+          endpoint: task.command.endpoint,
+          message: error.message,
+        });
+        this.socket.terminate();
+      }
     });
   }
   message(m) {
@@ -155,12 +211,15 @@ export class Tide extends EventEmitter {
       this.notification(m);
       return;
     }
-    if (!m.req || !this.active || m.req !== this.active.command.endpoint)
+    if (!m.req || !this.active || m.req !== this.active.command.endpoint) {
+      this.log("unexpected_response", { endpoint: m.req ?? null });
       return;
+    }
     const task = this.active;
     clearTimeout(task.timer);
     this.active = null;
-    if (m.status !== "OK")
+    if (m.status !== "OK") {
+      this.log("request_rejected", { endpoint: m.req, status: m.status });
       task.reject(
         new Error(
           typeof m.data === "string"
@@ -168,7 +227,12 @@ export class Tide extends EventEmitter {
             : "Processor rejected the command",
         ),
       );
-    else {
+    } else {
+      if (m.req.startsWith("set_"))
+        this.log("command_confirmed", {
+          endpoint: m.req,
+          durationMs: Date.now() - task.started,
+        });
       this.read(m.req, m.data);
       task.resolve(m.data);
     }
@@ -206,6 +270,33 @@ export class Tide extends EventEmitter {
       case "get_stream_properties":
         this.state.stream = data || {};
         this.state.format = streamLabel(data);
+        {
+          const stream = this.state.stream;
+          const key = JSON.stringify(
+            Object.keys(stream)
+              .sort()
+              .map((key) => [key, stream[key]]),
+          );
+          const seen = this.formats.get(key);
+          const time = new Date().toISOString();
+          if (seen) {
+            seen.lastSeen = time;
+            seen.count++;
+          } else {
+            const observation = {
+              firstSeen: time,
+              lastSeen: time,
+              count: 1,
+              source: this.state.source,
+              label: this.state.format,
+              stream: structuredClone(stream),
+            };
+            this.formats.set(key, observation);
+            if (this.formats.size > 100)
+              this.formats.delete(this.formats.keys().next().value);
+            this.log("stream_format_seen", observation);
+          }
+        }
         break;
       case "get_current_preset": {
         const p = data?.data ?? data;
@@ -258,8 +349,32 @@ export class Tide extends EventEmitter {
         this.refresh(["get_output_speakers"]);
         break;
       case "coordinator_status":
+        this.log("coordinator_status", { value });
         this.state.busy = value !== "ready";
-        if (!this.state.busy) this.refresh(["get_output_speakers"]);
+        if (this.state.busy) {
+          // Acknowledgement only confirms receipt, not completion of a switch.
+          this.queue = this.queue.filter((task) => {
+            if (!task.command.endpoint.startsWith("set_")) return true;
+            this.log("queued_command_rejected", {
+              endpoint: task.command.endpoint,
+            });
+            task.reject(new Error("Processor is switching"));
+            return false;
+          });
+          // Repeated busy notifications must not extend the deadline forever.
+          if (!this.switchingTimer) {
+            const socket = this.socket;
+            this.switchingTimer = setTimeout(() => {
+              this.log("switching_timeout");
+              socket?.terminate();
+            }, this.switchingTimeout);
+          }
+        } else {
+          clearTimeout(this.switchingTimer);
+          this.switchingTimer = null;
+          this.refresh(["get_output_speakers"]);
+          this.pump();
+        }
         break;
       default:
         return;
@@ -318,6 +433,7 @@ export class Tide extends EventEmitter {
     clearTimeout(this.reconnectTimer);
     clearInterval(this.meterTimer);
     clearInterval(this.streamTimer);
+    clearTimeout(this.switchingTimer);
     this.failAll(new Error("Bridge stopped"));
     this.socket?.terminate();
   }

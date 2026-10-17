@@ -167,3 +167,124 @@ test("output assignments recover after an empty boot response without notificati
   await until(() => !tide.state.connected);
   assert.equal(tide.state.busy, false);
 });
+
+test("switching pauses reads, rejects queued writes, and resumes on ready", async (t) => {
+  const tide = new Tide("ws://unused");
+  const sent = [];
+  tide.socket = {
+    readyState: WebSocket.OPEN,
+    send(raw) {
+      sent.push(JSON.parse(raw));
+    },
+    terminate() {},
+  };
+  t.after(() => tide.stop());
+  const active = tide.request({ endpoint: "set_source", value: "hdmi1" });
+  const queued = tide.request({ endpoint: "set_volume_db", value: -20 });
+  const rejected = assert.rejects(queued, /switching/);
+  const read = tide.request({ endpoint: "get_source" });
+  tide.notification({ notification: "coordinator_status", value: "switching" });
+  const deadline = tide.switchingTimer;
+  tide.notification({ notification: "coordinator_status", value: "switching" });
+  assert.equal(tide.switchingTimer, deadline);
+  await rejected;
+  tide.message({ req: "set_source", status: "OK" });
+  await active;
+  assert.deepEqual(
+    sent.map((m) => m.endpoint),
+    ["set_source"],
+  );
+  await assert.rejects(
+    tide.request({ endpoint: "set_mute", value: false }),
+    /switching/,
+  );
+  tide.notification({ notification: "coordinator_status", value: "ready" });
+  assert.equal(sent[1].endpoint, "get_source");
+  tide.message({ req: "get_source", status: "OK", data: "hdmi1" });
+  await read;
+  tide.message({ req: "get_output_speakers", status: "OK", data: {} });
+  assert.equal(tide.state.busy, false);
+  assert.equal(tide.switchingTimer, null);
+  assert(!sent.some((m) => m.endpoint === "set_volume_db"));
+});
+
+test("missing ready notification reconnects and reloads without replaying writes", async (t) => {
+  const device = new WebSocketServer({ port: 0 });
+  await once(device, "listening");
+  t.after(() => device.close());
+  let connections = 0;
+  const writes = [];
+  device.on("connection", (socket) => {
+    connections++;
+    socket.on("message", (raw) => {
+      const { endpoint } = JSON.parse(raw);
+      if (endpoint.startsWith("set_")) {
+        writes.push(endpoint);
+        socket.send(
+          JSON.stringify({
+            notification: "coordinator_status",
+            value: "switching",
+          }),
+        );
+      }
+      socket.send(JSON.stringify({ req: endpoint, status: "OK", data: {} }));
+    });
+  });
+  const tide = new Tide(`ws://127.0.0.1:${device.address().port}`, {
+    switchingTimeout: 60,
+    reconnect: 10,
+  });
+  t.after(() => tide.stop());
+  tide.start();
+  await until(() => tide.state.ready);
+  await tide.command({ endpoint: "set_source", value: "hdmi1" });
+  assert.equal(tide.state.busy, true);
+  await until(() => connections === 2 && tide.state.ready);
+  assert.equal(tide.state.busy, false);
+  assert.deepEqual(writes, ["set_source"]);
+});
+
+test("diagnostics retain bounded format observations with raw data and rendered labels", async (t) => {
+  const tide = new Tide("ws://unused");
+  const stream = {
+    decoder_stream_type: "DOLBY_DDP",
+    decoder_stream_proc_type: "Dolby Atmos",
+    channel_config: "0",
+    sample_rate: 48000,
+  };
+  tide.read("get_stream_properties", stream);
+  tide.read("get_stream_properties", { ...stream });
+  let snapshot = tide.diagnostics();
+  assert.equal(snapshot.formats.length, 1);
+  assert.equal(snapshot.formats[0].count, 2);
+  assert.equal(snapshot.formats[0].label, "Dolby Atmos");
+  assert.deepEqual(snapshot.formats[0].stream, stream);
+  assert.equal(
+    snapshot.events.filter((e) => e.event === "stream_format_seen").length,
+    1,
+  );
+  snapshot.formats[0].stream.channel_config = "changed";
+  assert.equal(tide.diagnostics().formats[0].stream.channel_config, "0");
+  for (let i = 0; i < 105; i++)
+    tide.read("get_stream_properties", {
+      decoder_stream_type: `new-codec-${i}`,
+    });
+  for (let i = 0; i < 205; i++) tide.log("test_event");
+  snapshot = tide.diagnostics();
+  assert.equal(snapshot.formats.length, 100);
+  assert.equal(snapshot.events.length, 200);
+  assert.equal(snapshot.formats.at(-1).label, "new-codec-104");
+  const server = createServer({ tide, user: "test", password: "secret" });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => server.close());
+  const url = `http://127.0.0.1:${server.address().port}/diagnostics`;
+  assert.equal((await fetch(url)).status, 401);
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Basic ${Buffer.from("test:secret").toString("base64")}`,
+    },
+  });
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.deepEqual(await response.json(), snapshot);
+});
