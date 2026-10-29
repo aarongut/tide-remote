@@ -117,6 +117,10 @@ test("Shield Tidal DDP Atmos uses the reported processing format", () => {
   );
 });
 test("numeric firmware channel counts have readable labels", () => {
+  for (const channel_config of ["6", 6])
+    assert.equal(streamLabel({ channel_config }), "5.1");
+  for (const channel_config of ["8", 8])
+    assert.equal(streamLabel({ channel_config }), "7.1");
   for (const channel_config of ["2", 2])
     assert.equal(streamLabel({ channel_config }), "Stereo");
   for (const zero of ["0", 0])
@@ -145,5 +149,38 @@ test("numeric firmware channel counts have readable labels", () => {
       sample_rate: 48000,
     }),
     "DOLBY_DDP",
+  );
+});
+
+test("captured TrueHD, DTS and PCM metadata have clear labels", () => {
+  assert.equal(
+    streamLabel({
+      decoder_stream_type: "DOLBY_DTHD",
+      decoder_stream_proc_type: "Dolby Atmos",
+      channel_config: "0",
+    }),
+    "Dolby Atmos",
+  );
+  assert.equal(
+    streamLabel({
+      decoder_stream_type: "DOLBY_DTHD",
+      decoder_stream_proc_type: "Dolby Surround",
+    }),
+    "Dolby TrueHD",
+  );
+  assert.equal(
+    streamLabel({
+      decoder_stream_type: "DTSX_DTS_MA",
+      decoder_stream_src_format: "Dolby TrueHD / MLP",
+    }),
+    "DTS-HD MA",
+  );
+  assert.equal(
+    streamLabel({ decoder_stream_type: "DOLBY_PCM", channel_config: "8" }),
+    "7.1",
+  );
+  assert.equal(
+    streamLabel({ decoder_stream_type: "DOLBY_PCM", channel_config: "0" }),
+    "PCM",
   );
 });

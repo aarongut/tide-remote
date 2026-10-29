@@ -65,6 +65,15 @@ export function assignedOutputs(speakers = {}) {
 // The selected upmixer and installed speaker layout
 // must never cause a stereo source to be labelled Atmos or 7.1.
 export function streamLabel(stream = {}) {
+  const type = String(stream.decoder_stream_type || "")
+    .trim()
+    .toUpperCase();
+  const processing = String(stream.decoder_stream_proc_type || "").trim();
+  // Live captures contain stale TrueHD source text during DTS playback.
+  // The user confirmed these captures are standard DTS-HD MA playback.
+  if (type === "DTSX_DTS_MA") return "DTS-HD MA";
+  if (type === "DOLBY_DTHD")
+    return /^Dolby Atmos$/i.test(processing) ? "Dolby Atmos" : "Dolby TrueHD";
   const source = [stream.decoder_stream_src_format, stream.decoder_stream_type]
     .filter((value) => value && String(value).trim() !== "0")
     .join(" ");
@@ -83,7 +92,12 @@ export function streamLabel(stream = {}) {
     return "Stereo";
   const layout = config.match(/(?:^|\s)([1-9]\.\d(?:\.\d)?)(?:$|\s)/);
   if (layout) return layout[1] === "2.0" ? "Stereo" : layout[1];
+  // Assume conventional surround layouts for firmware channel counts.
+  if (config === "6") return "5.1";
+  if (config === "8") return "7.1";
+  if (/^[1-9]\d*$/.test(config)) return `${config} channels`;
   if (config) return config;
+  if (type === "DOLBY_PCM") return "PCM";
   if (source.trim()) return source.trim();
   if (Number(stream.sample_rate) > 0 || Number(stream.dec_sample_rate) > 0)
     return "Unknown format";

@@ -49,6 +49,56 @@ export class Tide extends EventEmitter {
     this.visibleClients = 0;
     this.history = [];
     this.formats = new Map();
+    this.formatTimers = [];
+    this.formatSequence = 0;
+  }
+  formatContext() {
+    return {
+      source: this.state.source,
+      sourceName: this.state.sourceNames[this.state.source] ?? null,
+      upmixer: this.state.upmixer,
+      preset: this.state.preset,
+    };
+  }
+  cancelFormatCapture() {
+    for (const timer of this.formatTimers) clearTimeout(timer);
+    this.formatTimers = [];
+    this.formatSequence++;
+  }
+  captureFormatTransition(reason) {
+    this.cancelFormatCapture();
+    if (!this.state.ready || this.stopped) return;
+    const sequence = this.formatSequence;
+    const started = Date.now();
+    for (const offsetMs of [0, 1000, 3000, 5000]) {
+      this.formatTimers.push(
+        setTimeout(async () => {
+          if (sequence !== this.formatSequence || !this.state.connected) return;
+          const context = this.formatContext();
+          try {
+            const stream = await this.request({
+              endpoint: "get_stream_properties",
+            });
+            if (
+              sequence !== this.formatSequence ||
+              context.source !== this.state.source
+            )
+              return;
+            this.log("stream_format_sample", {
+              sequence,
+              reason,
+              offsetMs,
+              elapsedMs: Date.now() - started,
+              ...this.formatContext(),
+              label: streamLabel(stream),
+              stream: stream || {},
+            });
+          } catch {
+            // Disconnects and request failures are logged by the bridge.
+          }
+        }, offsetMs),
+      );
+    }
   }
   log(event, details = {}) {
     const entry = {
@@ -140,6 +190,7 @@ export class Tide extends EventEmitter {
       this.state.connected = false;
       this.state.ready = false;
       this.state.busy = false;
+      this.cancelFormatCapture();
       clearTimeout(this.switchingTimer);
       this.switchingTimer = null;
       this.state.levels = [];
@@ -272,11 +323,13 @@ export class Tide extends EventEmitter {
         this.state.format = streamLabel(data);
         {
           const stream = this.state.stream;
-          const key = JSON.stringify(
+          const key = JSON.stringify([
+            this.state.source,
+            this.state.upmixer,
             Object.keys(stream)
               .sort()
               .map((key) => [key, stream[key]]),
-          );
+          ]);
           const seen = this.formats.get(key);
           const time = new Date().toISOString();
           if (seen) {
@@ -287,7 +340,7 @@ export class Tide extends EventEmitter {
               firstSeen: time,
               lastSeen: time,
               count: 1,
-              source: this.state.source,
+              ...this.formatContext(),
               label: this.state.format,
               stream: structuredClone(stream),
             };
@@ -326,10 +379,12 @@ export class Tide extends EventEmitter {
         break;
       case "source_change":
         this.state.source = value;
+        this.captureFormatTransition("source_change");
         this.refresh(["get_stream_properties"]);
         break;
       case "upmixer_change":
         this.state.upmixer = value;
+        this.captureFormatTransition("upmixer_change");
         break;
       case "dirac_state":
         this.state.dirac = value;
@@ -343,6 +398,7 @@ export class Tide extends EventEmitter {
         ]);
         break;
       case "stream_changes":
+        this.captureFormatTransition("stream_changes");
         this.refresh(["get_stream_properties"]);
         break;
       case "speaker_config_number_change":
@@ -430,6 +486,7 @@ export class Tide extends EventEmitter {
   }
   stop() {
     this.stopped = true;
+    this.cancelFormatCapture();
     clearTimeout(this.reconnectTimer);
     clearInterval(this.meterTimer);
     clearInterval(this.streamTimer);

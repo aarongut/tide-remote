@@ -265,6 +265,16 @@ test("diagnostics retain bounded format observations with raw data and rendered 
   );
   snapshot.formats[0].stream.channel_config = "changed";
   assert.equal(tide.diagnostics().formats[0].stream.channel_config, "0");
+  tide.read("get_source", "hdmi1");
+  tide.read("get_stream_properties", stream);
+  tide.read("get_source", "toslink1");
+  tide.read("get_stream_properties", stream);
+  snapshot = tide.diagnostics();
+  assert.equal(snapshot.formats.length, 3);
+  assert.deepEqual(
+    snapshot.formats.map((f) => f.source),
+    [null, "hdmi1", "toslink1"],
+  );
   for (let i = 0; i < 105; i++)
     tide.read("get_stream_properties", {
       decoder_stream_type: `new-codec-${i}`,
@@ -287,4 +297,57 @@ test("diagnostics retain bounded format observations with raw data and rendered 
   });
   assert.equal(response.headers.get("cache-control"), "no-store");
   assert.deepEqual(await response.json(), snapshot);
+});
+
+test("format transition samples preserve timing, context and cancellation", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const tide = new Tide("ws://unused");
+  Object.assign(tide.state, {
+    connected: true,
+    ready: true,
+    source: "hdmi1",
+    sourceNames: { hdmi1: "Shield" },
+    upmixer: "native",
+    preset: 1,
+  });
+  let reads = 0;
+  tide.request = async () => {
+    reads++;
+    return { decoder_stream_type: "DOLBY_DTHD", channel_config: "0" };
+  };
+  tide.captureFormatTransition("stream_changes");
+  for (const delta of [0, 1000, 2000, 2000]) {
+    t.mock.timers.tick(delta);
+    await Promise.resolve();
+  }
+  const samples = tide.diagnostics().events;
+  assert.equal(reads, 4);
+  assert.deepEqual(
+    samples.map((s) => s.offsetMs),
+    [0, 1000, 3000, 5000],
+  );
+  assert.ok(
+    samples.every(
+      (s) =>
+        s.sourceName === "Shield" &&
+        s.upmixer === "native" &&
+        s.label === "Dolby TrueHD",
+    ),
+  );
+  tide.captureFormatTransition("source_change");
+  tide.cancelFormatCapture();
+  t.mock.timers.tick(5000);
+  await Promise.resolve();
+  assert.equal(reads, 4);
+  let finish;
+  tide.request = () =>
+    new Promise((resolve) => {
+      finish = resolve;
+    });
+  tide.captureFormatTransition("stream_changes");
+  t.mock.timers.tick(0);
+  tide.stop();
+  finish({ channel_config: "2" });
+  await Promise.resolve();
+  assert.equal(tide.diagnostics().events.length, 4);
 });

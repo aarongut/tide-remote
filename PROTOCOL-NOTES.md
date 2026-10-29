@@ -53,3 +53,52 @@ format mapping could be verified. This firmware also returned
 macOS packet capture requires administrator permissions. It was unnecessary:
 only the application's string-decoding helpers were evaluated to inspect
 the protocol; the full application modules were not executed.
+
+## Captured format mapping (2026-10-29)
+
+Read from the running bridge at `10.0.0.54:3000/diagnostics`:
+19 distinct raw records, 2,707 polls, first observed October 21–28.
+The raw capture is retained locally and excluded from version control.
+Counts measure polls while clients are visible, not playback duration.
+
+| Reported fields                            | Display label | Interpretation                                                                     |
+| ------------------------------------------ | ------------- | ---------------------------------------------------------------------------------- |
+| `DOLBY_PCM` or `UNKNOWN`, channel count 2  | Stereo        | PCM stereo; Dolby Surround processing does not imply incoming Atmos                |
+| `DOLBY_PCM`, channel count 8               | 7.1           | Conventional eight-channel layout assumed with user approval                       |
+| `DOLBY_PCM`, channel count 0               | PCM           | Layout unavailable                                                                 |
+| `DOLBY_DTHD` + processing `Dolby Atmos`    | Dolby Atmos   | Observed with TrueHD / MLP and HBR bitstream, also during zero-channel transitions |
+| `DOLBY_DTHD` + processing `Dolby Surround` | Dolby TrueHD  | No incoming Atmos evidence                                                         |
+| `DTSX_DTS_MA`                              | DTS-HD MA     | User confirmed standard DTS-HD MA playback; the enum alone does not imply DTS:X    |
+
+All captured records report 48 kHz. HDMI1 has stereo PCM, eight-channel
+PCM, TrueHD (with and without Atmos), and the DTS MA/X family. Toslink1
+has stereo PCM observations. Device names and playback titles were not
+captured, so these records cannot identify the originating app or movie.
+
+The DTS bitstream record retains `decoder_stream_src_format: "Dolby TrueHD / MLP"`
+while reporting a DTS decoder and `DTSX_DTS_MA`. Treat that source text as
+stale when the recognized stream type contradicts it. Several transition
+records likewise retain codec metadata with channel count zero and
+`is_bitstream: false`; neither field alone establishes no signal.
+
+Historical observations were keyed only by raw stream properties and retain
+the first input seen. Identical data on another input increments that same
+record, so historical per-input counts and last-seen attribution are unreliable.
+New observations include the input in the key. The live cache holds at most
+100 records and resets on restart; stdout logs only the first occurrence.
+
+Numeric channel counts 6 and 8 display as 5.1 and 7.1 respectively, per the user’s preferred conventional-layout assumption. Other counts remain explicit channel counts.
+
+### Transition diagnostics
+
+New format observations include input ID/name, selected upmixer and preset.
+Deduplication includes input ID and upmixer. Source, stream and upmixer change
+notifications start a bounded sequence of read-only stream requests at 0, 1,
+3 and 5 seconds. `stream_format_sample` events include the raw response,
+rendered label, sequence ID, trigger, requested offset and actual elapsed time.
+The existing queue pauses reads during switching; elapsed time may exceed the
+requested offset. A new transition, disconnect or shutdown cancels the previous
+sequence and suppresses its pending results. Samples are retained in the bounded
+200-event diagnostics history and emitted to stdout, including repeated formats.
+These captures do not require a visible client. Firmware version is not included:
+a supported read-only version endpoint has not yet been verified.
