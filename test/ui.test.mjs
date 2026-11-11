@@ -58,6 +58,16 @@ test("UI bundles icons, uses device output IDs, and sends control commands", asy
     levels: [{ index: 13, val: -50 }],
   };
   ws.onmessage({ data: JSON.stringify({ type: "state", state }) });
+  const preset = window.document.getElementById("preset");
+  assert.equal(preset.selectedOptions[0].textContent, "ART");
+  ws.onmessage({
+    data: JSON.stringify({ type: "state", state: { ...state, presets: [] } }),
+  });
+  assert.equal(preset.selectedOptions[0].textContent, "Preset 1 (unavailable)");
+  assert.equal(preset.disabled, true);
+  ws.onmessage({ data: JSON.stringify({ type: "state", state }) });
+  assert.equal(preset.selectedOptions[0].textContent, "ART");
+  assert.equal(preset.disabled, false);
   assert.equal(window.document.querySelectorAll(".meter").length, 2);
   assert.equal(
     window.document.querySelector('.meter[data-index="13"] .meter-label')

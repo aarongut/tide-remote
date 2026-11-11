@@ -132,15 +132,23 @@ test("cross-origin browser connection is rejected", async (t) => {
   assert.match(error.message, /403/);
 });
 
-test("output assignments recover after an empty boot response without notifications", async (t) => {
+test("outputs and presets recover after empty boot responses without notifications", async (t) => {
   const device = new WebSocketServer({ port: 0 });
   await once(device, "listening");
   t.after(() => device.close());
   let outputs = {};
+  let presets = [];
   device.on("connection", (socket) => {
     socket.on("message", (raw) => {
       const { endpoint } = JSON.parse(raw);
-      const data = endpoint === "get_output_speakers" ? outputs : {};
+      const data =
+        endpoint === "get_output_speakers"
+          ? outputs
+          : endpoint === "get_all_presets"
+            ? presets
+            : endpoint === "get_current_preset_index"
+              ? 1
+              : {};
       socket.send(JSON.stringify({ req: endpoint, status: "OK", data }));
     });
   });
@@ -150,17 +158,23 @@ test("output assignments recover after an empty boot response without notificati
   tide.start();
   await until(() => tide.state.ready);
   assert.deepEqual(tide.state.outputs, []);
+  assert.deepEqual(tide.state.presets, []);
   outputs = { 1: "LeftFront", 13: "Sub2" };
+  presets = [{ id: "1", name: "ART" }];
   await sleep(2600);
   await until(() => tide.state.outputs.length === 2);
+  await until(() => tide.state.presets.length === 1);
+  assert.deepEqual(tide.state.presets, presets);
   assert.deepEqual(tide.state.outputs, [
     { index: 1, name: "LeftFront" },
     { index: 13, name: "Sub2" },
   ]);
   tide.state.busy = true;
   outputs = { 3: "Center" };
+  presets = [{ id: "1", name: "Updated ART" }];
   tide.notification({ notification: "coordinator_status", value: "ready" });
   await until(() => tide.state.outputs[0]?.index === 3);
+  await until(() => tide.state.presets[0]?.name === "Updated ART");
   assert.equal(tide.state.busy, false);
   tide.state.busy = true;
   for (const socket of device.clients) socket.terminate();

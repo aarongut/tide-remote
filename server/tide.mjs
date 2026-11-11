@@ -135,7 +135,15 @@ export class Tide extends EventEmitter {
         !this.active &&
         !this.queue.length
       )
-        this.refresh(["get_stream_properties", "get_output_speakers"]);
+        this.refresh([
+          "get_stream_properties",
+          "get_output_speakers",
+          ...(!this.state.presets.some(
+            (p) => Number(p.id) === this.state.preset,
+          )
+            ? ["get_all_presets", "get_current_preset_index"]
+            : []),
+        ]);
     }, 2500);
   }
   connect() {
@@ -392,6 +400,7 @@ export class Tide extends EventEmitter {
       case "preset_change":
         this.state.preset = Number(value);
         this.refresh([
+          "get_all_presets",
           "get_current_preset",
           "get_dirac_state",
           "get_output_speakers",
@@ -428,7 +437,11 @@ export class Tide extends EventEmitter {
         } else {
           clearTimeout(this.switchingTimer);
           this.switchingTimer = null;
-          this.refresh(["get_output_speakers"]);
+          this.refresh([
+            "get_output_speakers",
+            "get_all_presets",
+            "get_current_preset_index",
+          ]);
           this.pump();
         }
         break;

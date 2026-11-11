@@ -43,6 +43,7 @@ function enableControls() {
     pending ||
     socket?.readyState !== WebSocket.OPEN;
   controls.forEach((c) => (c.disabled = disabled));
+  $("preset").disabled = disabled || !state.presets?.length;
 }
 function options(select, items, key) {
   const signature = JSON.stringify(items);
@@ -94,13 +95,22 @@ function render() {
     .map((id) => [id, names[id] || sourceDefaults[id]]);
   options($("source"), sources, "sources");
   $("source").value = state.source || "";
-  options(
-    $("preset"),
-    (state.presets || []).map((p) => [
-      String(p.id),
-      p.name?.trim() || `Preset ${p.id}`,
-    ]),
-    "presets",
+  const presets = (state.presets || []).map((p) => [
+    String(p.id),
+    p.name?.trim() || `Preset ${p.id}`,
+  ]);
+  if (!presets.some(([id]) => id === String(state.preset ?? "")))
+    presets.unshift([
+      String(state.preset ?? ""),
+      state.preset != null
+        ? `Preset ${state.preset} (unavailable)`
+        : state.ready
+          ? "No presets available"
+          : "Loading presets…",
+    ]);
+  options($("preset"), presets, "presets");
+  $("preset").options[0].disabled = !state.presets?.some(
+    (p) => String(p.id) === $("preset").options[0].value,
   );
   $("preset").value = String(state.preset ?? "");
   $("dirac").checked = state.dirac?.enabled === true;
