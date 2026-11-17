@@ -97,7 +97,7 @@ test("Shield Tidal DDP Atmos uses the reported processing format", () => {
       decoder_stream_proc_type: "Dolby Digital Plus",
       channel_config: "5.1",
     }),
-    "5.1",
+    "Dolby Digital Plus · 5.1",
   );
   assert.equal(
     streamLabel({
@@ -113,7 +113,7 @@ test("Shield Tidal DDP Atmos uses the reported processing format", () => {
       decoder_stream_src_format: "Dolby TrueHD / MLP",
       decoder_stream_type: "DOLBY_DDP",
     }),
-    "Dolby TrueHD / MLP DOLBY_DDP",
+    "Dolby Digital Plus",
   );
 });
 test("numeric firmware channel counts have readable labels", () => {
@@ -148,7 +148,47 @@ test("numeric firmware channel counts have readable labels", () => {
       decoder_stream_type: "DOLBY_DDP",
       sample_rate: 48000,
     }),
-    "DOLBY_DDP",
+    "Dolby Digital Plus",
+  );
+});
+
+test("DVD Dolby Digital includes available channel metadata", () => {
+  for (const [channel_config, label] of [
+    ["0", "Dolby Digital"],
+    ["2", "Dolby Digital · Stereo"],
+    ["6", "Dolby Digital · 5.1"],
+    ["3.0", "Dolby Digital · 3.0"],
+  ])
+    assert.equal(
+      streamLabel({
+        decoder_stream_type: "DOLBY_DD",
+        decoder_stream_proc_type: "Dolby Surround",
+        channel_config,
+      }),
+      label,
+    );
+  for (const channel_config of ["", "0", undefined])
+    assert.equal(
+      streamLabel({
+        decoder_stream_type: "DOLBY_DD",
+        decoder_stream_src_format: "Dolby TrueHD / MLP",
+        channel_config,
+        speakers_stream_map: "7",
+      }),
+      "Dolby Digital · 3.0",
+    );
+  for (const speakers_stream_map of ["0", "", "invalid", "-1"])
+    assert.equal(
+      streamLabel({ decoder_stream_type: "DOLBY_DD", speakers_stream_map }),
+      "Dolby Digital",
+    );
+  assert.equal(
+    streamLabel({
+      decoder_stream_type: "DOLBY_DD",
+      channel_config: "2",
+      speakers_stream_map: "7",
+    }),
+    "Dolby Digital · Stereo",
   );
 });
 
@@ -182,5 +222,34 @@ test("captured TrueHD, DTS and PCM metadata have clear labels", () => {
   assert.equal(
     streamLabel({ decoder_stream_type: "DOLBY_PCM", channel_config: "0" }),
     "PCM",
+  );
+});
+
+test("all recognized codecs share numeric layouts and mono/stereo labels", () => {
+  for (const [type, codec] of [
+    ["DTSX_DTS_MA", "DTS-HD MA"],
+    ["DOLBY_DTHD", "Dolby TrueHD"],
+    ["DOLBY_DDP", "Dolby Digital Plus"],
+    ["DOLBY_DD", "Dolby Digital"],
+  ]) {
+    for (const [channel_config, label] of [
+      [1, "Mono"],
+      [2, "Stereo"],
+      [3, "3.0"],
+      [6, "5.1"],
+      [8, "7.1"],
+    ])
+      assert.equal(
+        streamLabel({ decoder_stream_type: type, channel_config }),
+        `${codec} · ${label}`,
+      );
+    assert.equal(
+      streamLabel({ decoder_stream_type: type, speakers_stream_map: "7" }),
+      `${codec} · 3.0`,
+    );
+  }
+  assert.equal(
+    streamLabel({ decoder_stream_src_format: "DTS:X", channel_config: "7.1" }),
+    "DTS:X · 7.1",
   );
 });

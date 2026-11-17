@@ -56,6 +56,18 @@ the protocol; the full application modules were not executed.
 
 ## Captured format mapping (2026-10-29)
 
+DVD playback reported by the user on 2026-11-16 exposes `DOLBY_DD`.
+This maps to “Dolby Digital” (AC-3), with channel metadata appended when
+available. Dolby Surround processing does not determine the input layout.
+Live diagnostics report empty/zero `channel_config` and `speakers_stream_map: "7"`
+for the Plex-reported 3.0 rip; stereo PCM reports map "3". Treat the map as a
+bitmask and use its set-bit count when channel configuration is unavailable.
+This yields “Dolby Digital · 3.0”. Explicit channel configuration takes precedence.
+All recognized Dolby/DTS codecs share this channel suffix; Atmos remains a standalone
+label. Mono and Stereo use text; other counts use numeric layouts. Counts 6 and 8
+retain the conventional 5.1/7.1 assumption; other counts use N.0. Speaker-map
+positions and LFE assignments have not been independently verified.
+
 Read from the running bridge at `10.0.0.54:3000/diagnostics`:
 19 distinct raw records, 2,707 polls, first observed October 21–28.
 The raw capture is retained locally and excluded from version control.

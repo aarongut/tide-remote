@@ -62,41 +62,62 @@ export function assignedOutputs(speakers = {}) {
     .sort((a, b) => a.index - b.index);
 }
 
-// The selected upmixer and installed speaker layout
-// must never cause a stereo source to be labelled Atmos or 7.1.
+function channelLabel(stream) {
+  const config = String(stream.channel_config ?? "").trim();
+  const layout = config.match(/(?:^|\s)([1-9]\.\d(?:\.\d)?)(?:$|\s)/);
+  if (layout) {
+    if (layout[1] === "1.0") return "Mono";
+    if (layout[1] === "2.0") return "Stereo";
+    return layout[1];
+  }
+  if (/^(mono)$/i.test(config)) return "Mono";
+  if (/^(2\/0(?:\.0)?|stereo|2ch|2 channels)$/i.test(config)) return "Stereo";
+  let count = /^[1-9]\d*$/.test(config) ? Number(config) : 0;
+  if (!count) {
+    // Observed stereo=3 and Plex 3.0=7 support a speaker bitmask.
+    const map = String(stream.speakers_stream_map ?? "").trim();
+    if (
+      /^\d+$/.test(map) &&
+      Number.isSafeInteger(Number(map)) &&
+      Number(map) > 0
+    )
+      count = Number(map).toString(2).replaceAll("0", "").length;
+  }
+  if (count === 1) return "Mono";
+  if (count === 2) return "Stereo";
+  // Conventional layouts, consistent with the existing 6/8-channel assumption.
+  if (count === 6) return "5.1";
+  if (count === 8) return "7.1";
+  return count ? `${count}.0` : "";
+}
+
+// The selected upmixer and installed speaker layout never determine input channels.
 export function streamLabel(stream = {}) {
   const type = String(stream.decoder_stream_type || "")
     .trim()
     .toUpperCase();
   const processing = String(stream.decoder_stream_proc_type || "").trim();
-  // Live captures contain stale TrueHD source text during DTS playback.
-  // The user confirmed these captures are standard DTS-HD MA playback.
-  if (type === "DTSX_DTS_MA") return "DTS-HD MA";
+  const channels = channelLabel(stream);
+  const withChannels = (codec) => (channels ? `${codec} · ${channels}` : codec);
+  // Recognized stream types take precedence over stale source text.
+  if (type === "DTSX_DTS_MA") return withChannels("DTS-HD MA");
+  if (type === "DOLBY_DD") return withChannels("Dolby Digital");
   if (type === "DOLBY_DTHD")
-    return /^Dolby Atmos$/i.test(processing) ? "Dolby Atmos" : "Dolby TrueHD";
+    return /^Dolby Atmos$/i.test(processing)
+      ? "Dolby Atmos"
+      : withChannels("Dolby TrueHD");
+  if (type === "DOLBY_DDP")
+    return /^Dolby Atmos$/i.test(processing)
+      ? "Dolby Atmos"
+      : withChannels("Dolby Digital Plus");
   const source = [stream.decoder_stream_src_format, stream.decoder_stream_type]
     .filter((value) => value && String(value).trim() !== "0")
     .join(" ");
-  // Shield/Tidal reports DDP + Atmos processing even with channel_config=0
-  // and is_bitstream=false. Processing alone can describe stereo upmixing.
-  const ddpAtmos =
-    /^DOLBY_DDP$/i.test(String(stream.decoder_stream_type || "").trim()) &&
-    /^Dolby Atmos$/i.test(String(stream.decoder_stream_proc_type || "").trim());
-  if (/atmos/i.test(source) || ddpAtmos) return "Dolby Atmos";
-  if (/dts[\s:_-]*x(?:\W|$)/i.test(source)) return "DTS:X";
-  // A zero channel count can mean unavailable layout metadata, including
-  // during active playback after seeking. Keep codec/rate evidence visible.
-  const rawConfig = String(stream.channel_config ?? "").trim();
-  const config = rawConfig === "0" ? "" : rawConfig;
-  if (/^(2|2\.0|2\/0(?:\.0)?|stereo|2ch|2 channels)$/i.test(config))
-    return "Stereo";
-  const layout = config.match(/(?:^|\s)([1-9]\.\d(?:\.\d)?)(?:$|\s)/);
-  if (layout) return layout[1] === "2.0" ? "Stereo" : layout[1];
-  // Assume conventional surround layouts for firmware channel counts.
-  if (config === "6") return "5.1";
-  if (config === "8") return "7.1";
-  if (/^[1-9]\d*$/.test(config)) return `${config} channels`;
-  if (config) return config;
+  if (/atmos/i.test(source)) return "Dolby Atmos";
+  if (/dts[\s:_-]*x(?:\W|$)/i.test(source)) return withChannels("DTS:X");
+  if (channels) return channels;
+  const config = String(stream.channel_config ?? "").trim();
+  if (config && config !== "0") return config;
   if (type === "DOLBY_PCM") return "PCM";
   if (source.trim()) return source.trim();
   if (Number(stream.sample_rate) > 0 || Number(stream.dec_sample_rate) > 0)
