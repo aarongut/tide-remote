@@ -100,7 +100,17 @@ export function streamLabel(stream = {}) {
   const channels = channelLabel(stream);
   const withChannels = (codec) => (channels ? `${codec} · ${channels}` : codec);
   // Recognized stream types take precedence over stale source text.
-  if (type === "DTSX_DTS_MA") return withChannels("DTS-HD MA");
+  if (type === "DTSX_DTS_MA") {
+    // 6.1 bitstream reports a speaker mask without a layout.
+    if (
+      stream.is_bitstream === true &&
+      stream.packet_type === "HBR" &&
+      Number(stream.speakers_stream_map) === 201326863 &&
+      ["", "0"].includes(String(stream.channel_config ?? "").trim())
+    )
+      return "DTS-HD MA · 6.1";
+    return withChannels("DTS-HD MA");
+  }
   if (type === "DOLBY_DD") return withChannels("Dolby Digital");
   if (type === "DOLBY_DTHD")
     return /^Dolby Atmos$/i.test(processing)

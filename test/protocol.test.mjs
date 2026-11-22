@@ -253,3 +253,19 @@ test("all recognized codecs share numeric layouts and mono/stereo labels", () =>
     "DTS:X · 7.1",
   );
 });
+
+test("DTS-HD MA recognizes the captured 6.1 bitstream layout", () => {
+  const stream = {
+    decoder_stream_type: "DTSX_DTS_MA",
+    decoder_stream_src_format: "Dolby TrueHD / MLP",
+    channel_config: "",
+    speakers_stream_map: "201326863",
+    is_bitstream: true,
+    packet_type: "HBR",
+  };
+  assert.equal(streamLabel(stream), "DTS-HD MA · 6.1");
+  assert.equal(
+    streamLabel({ ...stream, channel_config: "8" }),
+    "DTS-HD MA · 7.1",
+  );
+});

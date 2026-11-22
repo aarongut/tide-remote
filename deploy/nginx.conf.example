@@ -3,7 +3,7 @@
 # your existing certificate issuance workflow. This is the pre-TLS vhost.
 server {
     listen 10.0.0.5:80;
-    server_name tide-control.local.frat.tech;
+    server_name tide-remote.local.frat.tech;
 
     # Add: include <your existing local-only snippet>;
     # Retain that include in the HTTPS server block Certbot configures.
