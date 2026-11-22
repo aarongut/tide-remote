@@ -82,20 +82,26 @@ function queueVolume(value) {
   sendAudioTarget();
   render();
 }
-function options(select, items, key) {
-  const signature = JSON.stringify(items);
+function options(select, items, key, otherInputs = []) {
+  const signature = JSON.stringify([items, otherInputs]);
   if (key === "sources" && signature === sourcesKey) return;
   if (key === "presets" && signature === presetsKey) return;
   if (key === "sources") sourcesKey = signature;
   else presetsKey = signature;
-  select.replaceChildren(
-    ...items.map(([value, label]) => {
-      const option = document.createElement("option");
-      option.value = value;
-      option.textContent = label;
-      return option;
-    }),
-  );
+  const createOption = ([value, label]) => {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    return option;
+  };
+  const children = items.map(createOption);
+  if (otherInputs.length) {
+    const group = document.createElement("optgroup");
+    group.label = "Other inputs";
+    group.append(...otherInputs.map(createOption));
+    children.push(group);
+  }
+  select.replaceChildren(...children);
 }
 function showVolume(value = state.volume) {
   const muted = muteTarget ?? state.mute === true;
@@ -127,10 +133,20 @@ function render() {
     .filter(Boolean)
     .join(" · ");
   const names = state.sourceNames || {};
-  const sources = Object.keys(sourceDefaults)
-    .filter((id) => !state.hiddenSources?.[id] || id === state.source)
-    .map((id) => [id, names[id] || sourceDefaults[id]]);
-  options($("source"), sources, "sources");
+  const aliases = [];
+  const defaults = [];
+  for (const [id, label] of Object.entries(sourceDefaults)) {
+    if (state.hiddenSources?.[id] && id !== state.source) continue;
+    const name = names[id]?.trim();
+    if (name && name !== label) aliases.push([id, name]);
+    else defaults.push([id, label]);
+  }
+  options(
+    $("source"),
+    aliases.length ? aliases : defaults,
+    "sources",
+    aliases.length ? defaults : [],
+  );
   $("source").value = state.source || "";
   const presets = (state.presets || []).map((p) => [
     String(p.id),

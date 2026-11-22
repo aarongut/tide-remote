@@ -47,7 +47,7 @@ test("UI bundles icons, uses device output IDs, and sends control commands", asy
     volume: -36,
     mute: false,
     source: "hdmi1",
-    sourceNames: { hdmi1: "Shield" },
+    sourceNames: { hdmi1: "Shield", hdmi3: "Chromecast", hdmi2: "HDMI 2" },
     hiddenSources: { toslink2: true },
     presets: [{ id: "1", name: "ART" }],
     preset: 1,
@@ -62,6 +62,16 @@ test("UI bundles icons, uses device output IDs, and sends control commands", asy
     levels: [{ index: 13, val: -50 }],
   };
   ws.onmessage({ data: JSON.stringify({ type: "state", state }) });
+  const source = window.document.getElementById("source");
+  assert.deepEqual(
+    [...source.children].map((child) =>
+      child.tagName === "OPTGROUP" ? child.label : child.textContent,
+    ),
+    ["Shield", "Chromecast", "Other inputs"],
+  );
+  assert.equal(source.querySelector("optgroup option").value, "hdmi2");
+  assert.equal(source.querySelector('[value="toslink2"]'), null);
+  assert.equal(source.value, "hdmi1");
   const preset = window.document.getElementById("preset");
   assert.equal(preset.selectedOptions[0].textContent, "ART");
   ws.onmessage({
