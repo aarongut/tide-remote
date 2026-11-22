@@ -481,9 +481,19 @@ export class Tide extends EventEmitter {
     )
       throw new Error("Preset is not available");
     const result = await this.request(command);
+    if (command.endpoint === "set_volume_db") {
+      const volume = await this.request({ endpoint: "get_volume_db" });
+      if (!Number.isFinite(volume))
+        throw new Error("Processor did not report the volume");
+      return result;
+    }
+    if (command.endpoint === "set_mute") {
+      const mute = await this.request({ endpoint: "get_mute" });
+      if (typeof mute !== "boolean")
+        throw new Error("Processor did not report mute status");
+      return result;
+    }
     const reads = {
-      set_volume_db: ["get_volume_db"],
-      set_mute: ["get_mute"],
       set_source: ["get_source", "get_stream_properties"],
       set_forced_upmixer: ["get_current_preset", "get_stream_properties"],
       set_dirac_state: ["get_dirac_state"],

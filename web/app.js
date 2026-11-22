@@ -9,7 +9,10 @@ const controls = [
 ];
 let socket,
   state = {},
-  pending = false,
+  pending = null,
+  volumeTarget = null,
+  muteTarget = null,
+  volumeTimer,
   dragging = false,
   retry = 500,
   requestId = 0,
@@ -36,14 +39,48 @@ function message(text = "", error = false) {
   $("message").textContent = text;
   $("message").classList.toggle("error", error);
 }
+function controlsUnavailable() {
+  return !state.ready || state.busy || socket?.readyState !== WebSocket.OPEN;
+}
 function enableControls() {
-  const disabled =
-    !state.ready ||
-    state.busy ||
-    pending ||
-    socket?.readyState !== WebSocket.OPEN;
+  const unavailable = controlsUnavailable();
+  const disabled = unavailable || pending !== null;
   controls.forEach((c) => (c.disabled = disabled));
   $("preset").disabled = disabled || !state.presets?.length;
+  const audioDisabled =
+    unavailable || (pending !== null && !isAudioCommand(pending));
+  $("mute").disabled = audioDisabled;
+  const volumeDisabled =
+    audioDisabled || !Number.isFinite(volumeTarget ?? state.volume);
+  for (const id of ["volume-slider", "decrease", "increase"])
+    $(id).disabled = volumeDisabled;
+}
+function isAudioCommand({ endpoint }) {
+  return endpoint === "set_volume_db" || endpoint === "set_mute";
+}
+function sendAudioTarget() {
+  if (pending || controlsUnavailable()) return;
+  if (muteTarget === state.mute) muteTarget = null;
+  if (muteTarget !== null) command({ endpoint: "set_mute", value: muteTarget });
+  else if (volumeTarget !== null)
+    command({ endpoint: "set_volume_db", value: volumeTarget });
+}
+function clearVolumeTarget() {
+  volumeTarget = null;
+  clearTimeout(volumeTimer);
+}
+function queueVolume(value) {
+  if ($("volume-slider").disabled || value === (volumeTarget ?? state.volume)) {
+    render();
+    return;
+  }
+  if (volumeTarget === null) {
+    message("");
+    volumeTimer = setTimeout(() => message("Updating volume…"), 3000);
+  }
+  volumeTarget = value;
+  sendAudioTarget();
+  render();
 }
 function options(select, items, key) {
   const signature = JSON.stringify(items);
@@ -61,7 +98,7 @@ function options(select, items, key) {
   );
 }
 function showVolume(value = state.volume) {
-  const muted = state.mute === true;
+  const muted = muteTarget ?? state.mute === true;
   $("volume-value").textContent = muted
     ? "Muted"
     : Number.isFinite(value)
@@ -120,10 +157,16 @@ function render() {
       b.setAttribute("aria-pressed", String(b.dataset.upmix === state.upmixer)),
     );
   if (!dragging) {
-    $("volume-slider").min = String(Math.min(-80, state.volume ?? -80));
-    $("volume-slider").value = state.volume ?? -80;
-    showVolume();
+    $("volume-slider").min = String(
+      Math.min(-80, state.volume ?? -80, volumeTarget ?? -80),
+    );
+    $("volume-slider").value = volumeTarget ?? state.volume ?? -80;
   }
+  showVolume(
+    dragging
+      ? Number($("volume-slider").value)
+      : (volumeTarget ?? state.volume),
+  );
   const outputs = state.outputs || [];
   const key = JSON.stringify(outputs);
   if (key !== outputsKey) {
@@ -182,23 +225,20 @@ function levels(values) {
   });
 }
 function command(command) {
-  if (
-    pending ||
-    !state.ready ||
-    state.busy ||
-    socket?.readyState !== WebSocket.OPEN
-  ) {
+  if (pending || controlsUnavailable()) {
     render();
     return;
   }
-  pending = true;
+  pending = command;
   enableControls();
-  message("");
+  if (!isAudioCommand(command)) message("");
   socket.send(
     JSON.stringify({ type: "command", id: String(++requestId), command }),
   );
   commandTimer = setTimeout(() => {
-    pending = false;
+    pending = null;
+    clearVolumeTarget();
+    muteTarget = null;
     message("Could not confirm the change. Reconnecting…", true);
     socket.close();
     render();
@@ -227,23 +267,53 @@ function connect() {
     }
     if (m.type === "state") {
       state = m.state;
+      if (controlsUnavailable()) {
+        dragging = false;
+        if (volumeTarget !== null || muteTarget !== null) {
+          clearVolumeTarget();
+          muteTarget = null;
+          message("Could not finish updating the audio controls", true);
+        }
+      }
       render();
     }
     if (m.type === "levels") {
       state.levels = m.levels;
       levels(m.levels);
     }
-    if (m.type === "result" && m.id === String(requestId)) {
+    if (m.type === "result" && pending && m.id === String(requestId)) {
       clearTimeout(commandTimer);
-      pending = false;
+      const completed = pending;
+      pending = null;
+      if (
+        completed.endpoint === "set_volume_db" &&
+        volumeTarget !== null &&
+        (!m.ok ||
+          volumeTarget === completed.value ||
+          volumeTarget === state.volume)
+      ) {
+        clearVolumeTarget();
+        message("");
+      }
+      if (
+        completed.endpoint === "set_mute" &&
+        (!m.ok || muteTarget === completed.value || muteTarget === state.mute)
+      )
+        muteTarget = null;
       if (!m.ok) message(m.message || "Could not change the setting", true);
+      sendAudioTarget();
       render();
     }
   };
   ws.onclose = () => {
     if (socket !== ws) return;
     clearTimeout(commandTimer);
-    pending = false;
+    pending = null;
+    if (volumeTarget !== null || muteTarget !== null) {
+      clearVolumeTarget();
+      muteTarget = null;
+      message("Disconnected before the audio changes could be confirmed", true);
+    }
     dragging = false;
     state.connected = false;
     state.ready = false;
@@ -275,7 +345,7 @@ $("volume-slider").addEventListener("input", (e) => {
 });
 $("volume-slider").addEventListener("change", (e) => {
   dragging = false;
-  command({ endpoint: "set_volume_db", value: Number(e.target.value) });
+  queueVolume(Number(e.target.value));
 });
 $("volume-slider").addEventListener("pointercancel", () => {
   dragging = false;
@@ -286,15 +356,17 @@ for (const [id, delta] of [
   ["increase", 0.5],
 ])
   $(id).addEventListener("click", () => {
-    if (Number.isFinite(state.volume))
-      command({
-        endpoint: "set_volume_db",
-        value: Math.max(-127.5, Math.min(0, state.volume + delta)),
-      });
+    const current = volumeTarget ?? state.volume;
+    if (Number.isFinite(current))
+      queueVolume(Math.max(-127.5, Math.min(0, current + delta)));
   });
-$("mute").addEventListener("click", () =>
-  command({ endpoint: "set_mute", value: !state.mute }),
-);
+$("mute").addEventListener("click", () => {
+  if ($("mute").disabled) return;
+  if (!pending) message("");
+  muteTarget = !(muteTarget ?? state.mute);
+  sendAudioTarget();
+  render();
+});
 document.addEventListener("visibilitychange", visibility);
 window.addEventListener("pageshow", () => {
   if (!socket || socket.readyState === WebSocket.CLOSED) {
