@@ -286,6 +286,27 @@ h1 {
 .switch:has(input:disabled) {
   opacity: 0.42;
 }
+.native-switch .switch span {
+  display: none;
+}
+.native-switch .switch input {
+  position: static;
+  opacity: 1;
+  width: auto;
+  height: auto;
+  accent-color: light-dark(#279657, #35bd71);
+}
+.native-switch .switch:has(input:disabled) {
+  opacity: 1;
+}
+.haptic {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
 .volume {
   border-radius: 22px;
   background: var(--panel);
@@ -346,6 +367,9 @@ h1 {
   margin-top: 10px;
 }
 .nudge {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
   width: 48px;
   height: 48px;
   border-radius: 50%;

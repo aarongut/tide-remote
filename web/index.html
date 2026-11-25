@@ -78,6 +78,7 @@
               type="checkbox"
               id="dirac"
               aria-label="Enable Dirac Live"
+              switch
               disabled /><span></span
           ></label>
         </div>
@@ -130,5 +131,8 @@
       </section>
       <div id="message" class="message" role="status" aria-live="polite"></div>
     </main>
+    <label id="haptic" class="haptic" aria-hidden="true"
+      ><input type="checkbox" switch tabindex="-1"
+    /></label>
   </body>
 </html>

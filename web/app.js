@@ -2,6 +2,13 @@ import { createIcons, AudioLines, Volume2, VolumeX } from "lucide";
 
 createIcons({ icons: { AudioLines, Volume2, VolumeX } });
 const $ = (id) => document.getElementById(id);
+const nativeSwitch = "switch" in HTMLInputElement.prototype;
+document.documentElement.classList.toggle("native-switch", nativeSwitch);
+// iOS has no vibration API, but toggling a native switch from a tap plays the
+// system switch haptic. It only fires inside a user-initiated event handler.
+function haptic() {
+  if (nativeSwitch) $("haptic").click();
+}
 const controls = [
   ...document.querySelectorAll(
     ".settings button,.settings input,.settings select,.volume button,.volume input",
@@ -10,6 +17,7 @@ const controls = [
 let socket,
   state = {},
   pending = null,
+  queued = null,
   volumeTarget = null,
   muteTarget = null,
   volumeTimer,
@@ -43,20 +51,43 @@ function controlsUnavailable() {
   return !state.ready || state.busy || socket?.readyState !== WebSocket.OPEN;
 }
 function enableControls() {
-  const unavailable = controlsUnavailable();
-  const disabled = unavailable || pending !== null;
+  // Settings changes can keep the processor busy for a long time, so they block
+  // everything. Audio commands settle quickly, so a settings change made
+  // meanwhile waits in `queued` instead.
+  const disabled =
+    controlsUnavailable() ||
+    queued !== null ||
+    (pending !== null && !isAudioCommand(pending));
   controls.forEach((c) => (c.disabled = disabled));
   $("preset").disabled = disabled || !state.presets?.length;
-  const audioDisabled =
-    unavailable || (pending !== null && !isAudioCommand(pending));
-  $("mute").disabled = audioDisabled;
   const volumeDisabled =
-    audioDisabled || !Number.isFinite(volumeTarget ?? state.volume);
+    disabled || !Number.isFinite(volumeTarget ?? state.volume);
   for (const id of ["volume-slider", "decrease", "increase"])
     $(id).disabled = volumeDisabled;
 }
 function isAudioCommand({ endpoint }) {
   return endpoint === "set_volume_db" || endpoint === "set_mute";
+}
+function requestSetting(next) {
+  if (pending && isAudioCommand(pending) && !controlsUnavailable()) {
+    queued = next;
+    render();
+  } else command(next);
+}
+function sendNext() {
+  sendAudioTarget();
+  if (pending || !queued) return;
+  const next = queued;
+  queued = null;
+  command(next);
+}
+function dropQueued() {
+  if (queued === null) return false;
+  queued = null;
+  return true;
+}
+function intended(endpoint) {
+  return [queued, pending].find((c) => c?.endpoint === endpoint);
 }
 function sendAudioTarget() {
   if (pending || controlsUnavailable()) return;
@@ -147,7 +178,7 @@ function render() {
     "sources",
     aliases.length ? defaults : [],
   );
-  $("source").value = state.source || "";
+  $("source").value = intended("set_source")?.value ?? (state.source || "");
   const presets = (state.presets || []).map((p) => [
     String(p.id),
     p.name?.trim() || `Preset ${p.id}`,
@@ -165,12 +196,14 @@ function render() {
   $("preset").options[0].disabled = !state.presets?.some(
     (p) => String(p.id) === $("preset").options[0].value,
   );
-  $("preset").value = String(state.preset ?? "");
-  $("dirac").checked = state.dirac?.enabled === true;
+  $("preset").value = String(intended("set_preset")?.id ?? state.preset ?? "");
+  $("dirac").checked =
+    intended("set_dirac_state")?.enabled ?? state.dirac?.enabled === true;
+  const upmixer = intended("set_forced_upmixer")?.decoder ?? state.upmixer;
   document
     .querySelectorAll("[data-upmix]")
     .forEach((b) =>
-      b.setAttribute("aria-pressed", String(b.dataset.upmix === state.upmixer)),
+      b.setAttribute("aria-pressed", String(b.dataset.upmix === upmixer)),
     );
   if (!dragging) {
     $("volume-slider").min = String(
@@ -253,6 +286,7 @@ function command(command) {
   );
   commandTimer = setTimeout(() => {
     pending = null;
+    queued = null;
     clearVolumeTarget();
     muteTarget = null;
     message("Could not confirm the change. Reconnecting…", true);
@@ -285,6 +319,7 @@ function connect() {
       state = m.state;
       if (controlsUnavailable()) {
         dragging = false;
+        if (dropQueued()) message("Could not change the setting", true);
         if (volumeTarget !== null || muteTarget !== null) {
           clearVolumeTarget();
           muteTarget = null;
@@ -317,7 +352,7 @@ function connect() {
       )
         muteTarget = null;
       if (!m.ok) message(m.message || "Could not change the setting", true);
-      sendAudioTarget();
+      sendNext();
       render();
     }
   };
@@ -325,6 +360,8 @@ function connect() {
     if (socket !== ws) return;
     clearTimeout(commandTimer);
     pending = null;
+    if (dropQueued())
+      message("Disconnected before the setting could be changed", true);
     if (volumeTarget !== null || muteTarget !== null) {
       clearVolumeTarget();
       muteTarget = null;
@@ -341,18 +378,21 @@ function connect() {
   ws.onerror = () => ws.close();
 }
 $("source").addEventListener("change", (e) =>
-  command({ endpoint: "set_source", value: e.target.value }),
+  requestSetting({ endpoint: "set_source", value: e.target.value }),
 );
 $("preset").addEventListener("change", (e) =>
-  command({ endpoint: "set_preset", id: Number(e.target.value) }),
+  requestSetting({ endpoint: "set_preset", id: Number(e.target.value) }),
 );
 $("dirac").addEventListener("change", (e) =>
-  command({ endpoint: "set_dirac_state", enabled: e.target.checked }),
+  requestSetting({ endpoint: "set_dirac_state", enabled: e.target.checked }),
 );
 document.querySelectorAll("[data-upmix]").forEach((b) =>
   b.addEventListener("click", () => {
     if (b.dataset.upmix !== state.upmixer)
-      command({ endpoint: "set_forced_upmixer", decoder: b.dataset.upmix });
+      requestSetting({
+        endpoint: "set_forced_upmixer",
+        decoder: b.dataset.upmix,
+      });
   }),
 );
 $("volume-slider").addEventListener("input", (e) => {
@@ -367,15 +407,46 @@ $("volume-slider").addEventListener("pointercancel", () => {
   dragging = false;
   render();
 });
+function nudge(delta) {
+  const current = volumeTarget ?? state.volume;
+  if (Number.isFinite(current))
+    queueVolume(Math.max(-127.5, Math.min(0, current + delta)));
+}
 for (const [id, delta] of [
   ["decrease", -0.5],
   ["increase", 0.5],
-])
-  $(id).addEventListener("click", () => {
-    const current = volumeTarget ?? state.volume;
-    if (Number.isFinite(current))
-      queueVolume(Math.max(-127.5, Math.min(0, current + delta)));
+]) {
+  const button = $(id);
+  let timer = null,
+    repeats = 0;
+  const stop = () => {
+    clearTimeout(timer);
+    timer = null;
+  };
+  // Holding repeats, speeding up over time; a plain tap steps once on click.
+  const repeat = () => {
+    if (button.disabled) return stop();
+    nudge(delta);
+    repeats++;
+    timer = setTimeout(repeat, repeats > 12 ? 50 : repeats > 5 ? 80 : 120);
+  };
+  button.addEventListener("pointerdown", () => {
+    if (button.disabled) return;
+    stop();
+    repeats = 0;
+    timer = setTimeout(repeat, 420);
   });
+  for (const type of ["pointerup", "pointercancel", "pointerleave"])
+    button.addEventListener(type, stop);
+  button.addEventListener("click", () => {
+    if (repeats) repeats = 0;
+    else {
+      haptic();
+      nudge(delta);
+    }
+  });
+  button.addEventListener("contextmenu", (e) => e.preventDefault());
+}
 $("mute").addEventListener("click", () => {
   if ($("mute").disabled) return;
   if (!pending) message("");

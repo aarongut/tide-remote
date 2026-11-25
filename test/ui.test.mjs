@@ -123,22 +123,34 @@ test("UI bundles icons, uses device output IDs, and sends control commands", asy
   });
   assert.equal(volume.textContent, "−33.0");
   assert.equal(slider.value, "-33");
+  assert.equal(preset.disabled, false);
+  source.value = "hdmi3";
+  source.dispatchEvent(new window.Event("change"));
+  assert.equal(ws.sent.length, 3);
+  assert.equal(increase.disabled, true);
   assert.equal(preset.disabled, true);
   readVolume(-35.5);
   assert.equal(volume.textContent, "−33.0");
+  assert.equal(source.value, "hdmi3");
   confirm("3");
   assert.equal(ws.sent.at(-1).command.value, -33);
+  readVolume(-33);
+  confirm("4");
+  assert.deepEqual(ws.sent.at(-1).command, {
+    endpoint: "set_source",
+    value: "hdmi3",
+  });
+  confirm("5");
+  assert.equal(increase.disabled, false);
 
   slider.value = "-40";
   slider.dispatchEvent(new window.Event("input"));
   assert.equal(volume.textContent, "−40.0");
   slider.dispatchEvent(new window.Event("change"));
-  assert.equal(ws.sent.length, 4);
-  readVolume(-33);
-  confirm("4");
+  assert.equal(ws.sent.length, 6);
   assert.equal(ws.sent.at(-1).command.value, -40);
   readVolume(-39.5);
-  confirm("5");
+  confirm("6");
   assert.equal(volume.textContent, "−39.5");
   assert.equal(preset.disabled, false);
 
@@ -149,7 +161,7 @@ test("UI bundles icons, uses device output IDs, and sends control commands", asy
   assert.equal(mute.getAttribute("aria-pressed"), "true");
   assert.equal(ws.sent.at(-1).command.endpoint, "set_volume_db");
   readVolume(-39);
-  confirm("6");
+  confirm("7");
   assert.deepEqual(ws.sent.at(-1).command, {
     endpoint: "set_mute",
     value: true,
@@ -163,13 +175,23 @@ test("UI bundles icons, uses device output IDs, and sends control commands", asy
       state: { ...state, mute: true, volume: -39 },
     }),
   });
-  confirm("7");
+  confirm("8");
   assert.deepEqual(ws.sent.at(-1).command, {
     endpoint: "set_mute",
     value: false,
   });
   readVolume(-39);
-  confirm("8");
+  confirm("9");
+
+  increase.dispatchEvent(new window.PointerEvent("pointerdown"));
+  await new Promise((resolve) => setTimeout(resolve, 600));
+  increase.dispatchEvent(new window.PointerEvent("pointerup"));
+  const held = Number(volume.textContent.replace("−", "-"));
+  assert(held >= -38, `holding + should repeat, got ${held}`);
+  increase.click();
+  assert.equal(Number(volume.textContent.replace("−", "-")), held);
+  increase.click();
+  assert.equal(Number(volume.textContent.replace("−", "-")), held + 0.5);
 
   ws.onmessage({
     data: JSON.stringify({
